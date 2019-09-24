@@ -8,7 +8,13 @@ output:
   html_document: default
 ---
 
+Personal Injury protection is an auto insurance product required in some states. This code assesses the most important drivers for PIP frequency and analyzes the effects of these drivers to help explain what is happening in this auto coverage. This is a sample of one of the 3 coverages that I analyzed for the "Auto Loss Cost" project.
+
+
 ```{r, include = FALSE, echo = FALSE}
+
+
+# Setting figure options
 knitr::opts_chunk$set(fig.width = 12, fig.height = 6.5)
 
 ```
@@ -22,17 +28,21 @@ library(gridExtra)
 library(car)
 set.seed(100)
 
-header <- scan("C:/Users/Cason Wight/Desktop/Hartman Research/New data 2-22-2018.csv", 
+# This reformats the data from Excel into workable format
+# Picks up the title names and then the rest of the data
+header <- scan("New data 2-22-2018.csv", 
                nlines = 1, sep = ",", skip = 0, what = character())
-header2 <- scan("C:/Users/Cason Wight/Desktop/Hartman Research/New data 2-22-2018.csv", 
+header2 <- scan("New data 2-22-2018.csv", 
                 nlines = 1, sep = ",", skip = 1, what = character())
-auto <- read.csv("C:/Users/Cason Wight/Desktop/Hartman Research/New data 2-22-2018.csv", 
+auto <- read.csv("New data 2-22-2018.csv", 
                  skip = 2, header = FALSE)
 
 colnames(auto) <- paste0(header, ifelse(header=="", "", "_"), header2)
 
+# Replaces spaces with underscores for coding easr
 colnames(auto) <- gsub(" ", "_", colnames(auto))
 
+# Replaces Excel's automatic error messages with NA
 auto$Average_Miles_per_Driver <- as.numeric(gsub("#N/A", NA, auto$Average_Miles_per_Driver))
 auto$`On-Level_Mileage_Adjustment` <- as.numeric(gsub("#N/A", NA, auto$`On-Level_Mileage_Adjustment`))
 auto$`COLL_On-Level_Frequency` <- as.numeric(gsub("#N/A", NA, auto$`COLL_On-Level_Frequency`))
@@ -42,6 +52,7 @@ auto$`PIP_On-Level_Frequency` <- as.numeric(gsub("#N/A", NA, auto$`PIP_On-Level_
 colnames(auto)[1] <- "State"
 auto$State <- as.character(auto$State)
 
+# Dropped some states that don't have PIP coverage
 rowsToKeep <- which(auto$`State`%in%c("Florida", "Michigan", "New Jersey", "New York", "Pennsylvania", "Kansas", "Kentucky", "Massachusetts", "Minnesota", "North Dakota", "Utah",  "Delaware", "Maryland", "Oregon", "South Carolina", "Texas", "Washington"))
 
 
@@ -51,6 +62,7 @@ moreRowsToCut <- which(is.na(auto$Average_Miles_per_Driver))
 
 auto <- auto[-moreRowsToCut,]
 
+# We don't want other insurance losses (cannot predict based on them)
 auto <- select(auto, -starts_with("BI_"), -starts_with("PD_"), -starts_with("COMP_"),
                -starts_with("#REF!"), -starts_with("COLL_"), -starts_with("PIP_On-Level_Frequency"), -starts_with("System"))
 ```
@@ -62,19 +74,24 @@ factors <- select(auto, c(`Average_Miles_per_Driver`:`Drivers_per_Lane_Mile`, `P
 library(randomForest)
 
 ImpPlot <- function() {
+  # This function creates an importance plot for PIP frequency, given potential predictors
+  
+  # Training with 80% of data and testing with 20%
   rows.train <- sample(1:nrow(factors), round(nrow(factors)*.8))
   train <- factors[rows.train,]
   test <- factors[-rows.train,]
+  
+  # Running the data through a random forest model
   out <- randomForest(x = factors[,-ncol(factors)], 
                       y = factors[,ncol(factors)],
                       xtest= factors[,-ncol(factors)], 
                       ytest=factors[,ncol(factors)], 
-                         replace=TRUE, 
-                         keep.forest=TRUE, 
-                         ntree= 100, 
-                         mtry= 9,
-                         nodesize= 15) 
-  
+                         replace=TRUE, # with replacement because we are bootstrapping samples for trees
+                         keep.forest=TRUE, # if the trees aren't kept, they are thrown away due to memory
+                         ntree= 100, # usually 50-100 are reasonable
+                         mtry= 9,# usually a third, a fourth, or a tenth of exp. variables (this draws out middle variables)
+                         nodesize= 25) #usually 25 or 30
+  # based on the model output, some variables are more important for PIP frequency
   imp <- data.frame(importance(out))
   colnames(imp) <- "Relative_Importance"
   imp <- cbind(imp, "Variables" = gsub("_", " ", rownames(imp)))
@@ -82,6 +99,7 @@ ImpPlot <- function() {
   rownames(imp) <- NULL
   imp$Variables <- as.factor(imp$Variables)
   
+  # This plots the variable importance in a standardized format
   impPlot <- ggplot(data = imp, aes(y=Relative_Importance, 
                                     x = reorder(Variables, Relative_Importance))) +
     geom_bar(stat = "identity", col = "darkorange1", fill = "darkorange1", width = .35)+
@@ -93,6 +111,8 @@ ImpPlot <- function() {
     scale_y_continuous(expand = c(0,0))
   
   print(impPlot)
+  
+  # We want to return the top 6 most important variables for use in later models
   return(gsub(" ", "_",imp[1:6, 2]))
 }
 
@@ -101,11 +121,13 @@ variables <- ImpPlot()
 
 
 ```{r PrepareModelForPlots, echo = FALSE, message = FALSE, warning = FALSE}
-
+# We won't use 2011 data or earlier for completeness
 PIPfreq <- auto[which(auto$`Year` > 2011),]
 
+# Want everything aggregated at state and year levels
 PIPfreq <- aggregate(.~State_Abbreviation+State+Year, data = PIPfreq, mean)
 
+# Quintile reformats the data to be in quintiles by year. 
 Quintile <- function(mydata) {
   dataByYear <- list()
   numbers <- list()
@@ -114,6 +136,7 @@ Quintile <- function(mydata) {
     dataByYear[[i-2011]] <- mydata[which(mydata$Year == i),]
     quintiles <- quantile(dataByYear[[i-2011]]$PIP_Frequency, seq(0,1,.2))
     dataByYear[[i-2011]]$QUINT <- cut(dataByYear[[i-2011]]$PIP_Frequency,quintiles)
+    # Giving the data its "quintile" allows it to be aggregated later
     levels(dataByYear[[i-2011]]$QUINT) <- 1:6
     newdata <- rbind(newdata, dataByYear[[i-2011]])
   }
@@ -124,7 +147,7 @@ Quintile <- function(mydata) {
 
 PIPFreqAvgs <- Quintile(PIPfreq)
 
-
+# For the quintile plots, we need data to be aggregated by year and quintile
 graph.PIP <- aggregate(.~Year+QUINT, data = select(PIPFreqAvgs, 
                                                 -c(State_Abbreviation, State)), FUN = mean)
 ```
@@ -148,12 +171,14 @@ varFreqTSeries <- function(variable, states) {
 }
 
 graphs <- function(graph.data, states) {
+  # This function peels out the states that are wanted and makes a quintile plot for those states
   filteredData <- auto[which(auto$State%in%unique(states)),]
   out.Freq <- lm(PIP_Frequency~get(variables[1])+get(variables[2])+get(variables[3])+
                  get(variables[4])+get(variables[5])+get(variables[6]), 
                  data = filteredData)
   
   for(i in 1:length(variables)) {
+    # Each variable gets its own plow for each state
     graph1 <- ggplot(data = graph.data, aes(x=factor(QUINT), y = get(variables[i]), fill = factor(Year)))
     graph1 <- graph1 + geom_col(position = "dodge", width = .56)
     graph1 <- graph1 + scale_fill_manual(name = "Year:", 
@@ -167,21 +192,7 @@ graphs <- function(graph.data, states) {
     for(j in 1:nrow(filteredData)) {
       labels[j] <- filteredData[j, 1]
     }
-    plot <- avPlot(out.Freq, paste("get(variables[",i, "])", sep = ""), id.cex = .5,
-                 xlab = gsub("_", " ", variables[i]), id.method="x", id.n = 30, labels = labels,
-                  main = paste("PIP Frequency with added variable:", gsub("_", " ", variables[i])))
-    
-    #skip <- unique(filteredData[order(mean(plot[,1])-plot[,1], decreasing = TRUE)[1:10],1])
-    
-    
-    #out.new <- lm(PIP_Frequency~get(variables[1])+get(variables[2])+get(variables[3])+
-    #             get(variables[4])+get(variables[5])+get(variables[6]), 
-    #             data = filteredData[-which(filteredData$State%in%skip),])
-    
-    #varFreqTSeries(variables[i], skip)
-    #avPlot(out.new, paste("get(variables[",i, "])", sep = ""), id.cex = .5,
-    #             xlab = gsub("_", " ", variables[i]), 
-    #       main = paste("Added Variable Plot w/put extreme states:", variables[i]))
+
     
   }
 }
@@ -189,16 +200,19 @@ graphs <- function(graph.data, states) {
 states <- unique(auto$State)
 graphs(graph.PIP, states)
 
+# These states have monetary thresholds for PIP coverage
 states <- c("Kansas", "Kentucky", "Massachusetts", "Minnesota", "North Dakota","Utah")
 PIPmon <- PIPFreqAvgs[which(PIPFreqAvgs$State%in%states),]
 monetary.graph <- aggregate(.~Year+QUINT, data = select(PIPmon, -c(State_Abbreviation, State)), FUN = mean)
 graphs(monetary.graph, states)
 
+# Thee states have verbal thresholds for PIP coverage
 states <- c("Florida", "Michigan", "New Jersey", "New York", "Pennsylvania")
 PIPverb <- PIPFreqAvgs[which(PIPFreqAvgs$State%in%states),]
 verbal.graph <- aggregate(.~Year+QUINT, data = select(PIPverb, -c(State_Abbreviation, State)), FUN = mean)
 graphs(verbal.graph, states)
 
+# These are the states with optional PIP Coverage
 states <- c("New Jersey", "Pennsylvania", "Kentucky", "Delaware", "Maryland", "Oregon", "South Carolina", "Texas", "Washington")
 PIPopt <- PIPFreqAvgs[which(PIPFreqAvgs$State%in%states),]
 optional.graph <- aggregate(.~Year+QUINT, data = select(PIPopt, -c(State_Abbreviation, State)), FUN = mean)
@@ -206,14 +220,17 @@ graphs(optional.graph, states)
 ```
 
 ```{r AveragePIPfrequency1, echo = FALSE, message = FALSE, warning = FALSE}
+
 averageTimeGraph <- function(states) {
-  Quarter <- seq(2011.75, 2015.75, .25)
+    # This function plots the average tie series of PIP frequency, given a group of states
+    Quarter <- seq(2011.75, 2015.75, .25)
 
   frequency <- rep(0, length(auto[which(auto$State == states[2]), which(colnames(auto)=="PIP_Frequency")]))
   
   for(i in 2:length(states)){
     frequency <- frequency + auto[which(auto$State==states[i]), which(colnames(auto)=="PIP_Frequency")]
   }
+  # This makes an average for frequency
   frequency <- frequency/length(states)
   
   plot1 <- qplot(Quarter, frequency, geom = c("line", "point"),
@@ -223,6 +240,7 @@ averageTimeGraph <- function(states) {
 
 }
 
+# The different groups are all states, monetary threshold, verbal threshold, and opt-in states
 states <- c("All PIP States", unique(auto$State))
 allPIP <- averageTimeGraph(states)
 
@@ -239,6 +257,7 @@ optPIP <- averageTimeGraph(states)
 
 
 ```{r AveragePIPfrequency, echo = FALSE, message = FALSE, warning = FALSE}
+# These plot function do more tie series plots, based on states
 timeGraph <- function(state) {
 
   state.data <- auto[which(auto$State == state),]
@@ -251,19 +270,21 @@ timeGraph <- function(state) {
 }
 
 regionalGraph <- function(states) {
+  
   Quarter <- seq(2011.75, 2015.75, .25)
   
   group.data <- rep(0, length(auto[which(auto$State == states[2]), which(colnames(auto)=="PIP_Frequency")]))
   
   for(i in 2:length(states)) {
+    
     frequency <- auto[which(auto$State == states[i]), which(colnames(auto)=="PIP_Frequency")]
     group.data <- group.data + frequency
   }
-  
+  # We want the average along with the rest of the time series
   group.data <- group.data/length(states)
 
   
-  
+  # The frequency data dataframe allows for plotting the time series of all states at once
   frequency.data <- data.frame(Quarter = Quarter, Frequency = group.data, Group="Average")
   for (i in 2:length(states)) {
     stateDats <- data.frame(Quarter = Quarter, 
@@ -273,7 +294,7 @@ regionalGraph <- function(states) {
   }
   
   
-  
+  # Actual plotting
   plot1 <- ggplot(frequency.data, aes(x = Quarter, y = Frequency, col = Group)) +
     geom_line()+
     geom_point()+
@@ -289,6 +310,7 @@ all.states <- c("All PIP States", unique(auto$State))
 ```
   
 ```{r}
+# colling the plotting function
 regionalGraph(all.states)
 ```
 

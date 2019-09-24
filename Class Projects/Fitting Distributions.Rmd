@@ -1,0 +1,957 @@
+---
+title: "Stat 477 Final Project"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+subtitle: "Cason Wight"
+output:
+ word_document:
+   reference_docx: MyTemplate.docx
+---
+
+##Executive Summary
+
+This report explores possible distributions to fit a given set of claims and individual loss data. These data were obtained from Dr. Richardson. After exploring different paramater estimates using maximum likelihood and method of moments, for three different distributions on each set of data, a few tests were performed. The Kolmogorov-Smirnov (KS) test, the $\chi^2$ test, and the Schwarz-Bayesian Criterion (SBC) were used to determine which of the three predetermined distributions for each set of data was best.  
+  
+It was found that for the claims data (recorded as claim counts), a $Negative Binomial(\hat{r}\approx 24.03, \hat{\beta}\approx 0.12)$ is the best fit. This distribution has an expected value of 2.9 and a variance of 3.25. The KS test statistic, $\chi^2$ test statistic, and SBC for this fit were 0.23, 6.82, and -495.51, respectively.  
+  
+For the losses data, a $Lognormal(\hat{\mu}\approx 5.11, \hat{\sigma}\approx 0.64)$ has the best fit. This distribution has an expected value of 203.66 and a variance of 20,744.76. The KS test statistic, $\chi^2$ test statistic, and SBC for this fit were 0.04, 3.23, and -6,041.99, respectively.  
+
+Using these distributions, an aggregate loss estimation of the expectation was found to be 590.61. The variance was found to be 194,955.80. A Monte Carlo simulation using these distributions yielded similar results.
+
+##Parameter Estimation
+
+We will start our parameter estimation by taking a quick look at the two data sets and determining the distributions we will fit to these data. We will then use maximum likelihood estimation, followed by method of moments, to find parameter estimates for each of the six distributions (3 for claims data and 3 for losses data). Using these estimated distributions, this report will summarize the expectation and variance for each fit. 
+
+###Initial Look at Data
+
+In this section, basic summary statistics and histograms/observed densities are reported. See Table 1 and Figure 1 below for information on the claims data. See Table 2 and Figure 2 for information on losses data.
+
+######
+
+Table 1: Summary Statistics of Claims
+```{r Initial Data Check, echo = FALSE, fig.height=3.25}
+# Reading in the data
+claims <- read.csv("C:/Users/Cason Wight/Desktop/Classes/Assignments/Stat 477/Final Project/Claims.csv")
+losses <- read.csv("C:/Users/Cason Wight/Desktop/Classes/Assignments/Stat 477/Final Project/Losses.csv")
+
+# Looking at the data
+pander::pander(summary(claims[,2]))
+hist(claims[,2], freq = FALSE, main = "Figure 1: Distribution of Claims", xlab = "# of Claims")
+lines(0:10, table(claims[,2])/250, type = 'h', col = 2, lwd = 5)
+```
+  
+Table 2: Summary Statistics of Losses
+```{r Initial Data Check 2, echo = FALSE, fig.height=3.25}
+pander::pander(summary(losses[,2]))
+hist(losses[,2], freq = FALSE, main = "Figure 2: Distribution of Losses", xlab = "Losses", ylim = c(0,.005))
+lines(density(losses[,2]), col = 2)
+
+claims <- claims[,2]
+losses <- losses[,2]
+```
+
+For number of claims, the three distributions picked must be discrete. The three distributions that I will choose are the Poisson, the Geometric, and the Negative Binomial. For the losses, the three continuous distributions are the Gamma, the Lognormal, and the Pareto.
+
+###Claims
+####Distribution 1: Poisson
+
+#####Maximum Likelihood Estimation
+
+$$L(\lambda)=\prod_{i=1}^{n}\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}\propto e^{-n\lambda}\lambda^{\sum_{i=1}^{n}x_i}$$
+$$\ell(\lambda)=-n\lambda+\left(\sum_{i=1}^{n}x_i\right)\ln{\lambda}$$
+$$\ell'(\hat{\lambda})=-n+\frac{\sum_{i=1}^{n}x_i}{\lambda}=0$$
+$$\hat{\lambda}=\frac{\sum_{i=1}^{n}x_i}{n}=\frac{`r sum(claims)`}{`r length(claims)`}=`r round(sum(claims)/length(claims),5)`$$
+
+#####Method of Moments
+
+$$X\sim Poisson(\lambda),\; E(X)=\lambda$$
+$$\hat{\lambda}=E(X)=\frac{\sum_{i=1}^{n}x_i}{n}=\frac{`r sum(claims)`}{`r length(claims)`}=`r round(sum(claims)/length(claims),5)`$$
+
+#####Summary Characteristics
+
+For both maximum likelihood estimation and method of moments, the estimate for $\lambda$ is the same ($\hat{\lambda}=`r round(sum(claims)/length(claims),5)`$). For the Poisson, both the expected value and the variance are equal to $\hat{\lambda}=`r round(sum(claims)/length(claims),5)`$.
+
+
+####Distribution 2: Geometric
+
+#####Maximum Likelihood Estimation
+
+$$L(\beta)=\prod_{i=1}^{n}\frac{\beta^{x_i}}{(1+\beta)^{x_i+1}}=\frac{\beta^{\sum_{i=1}^{n}x_i}}{(1+\beta)^{n+\sum_{i=1}^{n}x_i}}$$
+$$\ell(\beta)=\left(\sum_{i=1}^{n}x_i\right)\ln{\beta}-\left(n+\sum_{i=1}^{n}x_i\right)\ln{(1+\beta)}$$
+$$\ell'(\hat{\beta})=\frac{\sum_{i=1}^{n}x_i}{\hat{\beta}}-\frac{n+\sum_{i=1}^{n}x_i}{1+\hat{\beta}}=\frac{(1+\hat{\beta})\sum_{i=1}^{n}x_i-\hat{\beta}\left(n+\sum_{i=1}^{n}x_i\right)}{\hat{\beta}(1+\hat{\beta})}=0$$
+$$\sum_{i=1}^{n}x_i+\hat{\beta}\sum_{i=1}^{n}x_i=\hat{\beta} n+\hat{\beta}\sum_{i=1}^{n}x_i$$
+$$\hat{\beta}=\frac{\sum_{i=1}^{n}x_i}{n}=\frac{`r sum(claims)`}{`r length(claims)`}=`r round(sum(claims)/length(claims),5)`$$
+
+#####Method of Moments
+
+$$X\sim Geometric(\beta),\; E(X)=\beta$$
+$$\hat{\beta}=E(X)=\frac{\sum_{i=1}^{n}x_i}{n}=\frac{`r sum(claims)`}{`r length(claims)`}=`r round(sum(claims)/length(claims),5)`$$
+
+#####Summary Characteristics
+
+For both maximum likelihood estimation and method of moments, the estimate for $\beta$ is the same ($\hat{\beta}=`r round(sum(claims)/length(claims),5)`$). For the Geometric,  the expected value is equal to $\hat{\beta}=`r round(sum(claims)/length(claims),5)`$ and the variance is equal to $\hat{\beta}(1+\hat{\beta})=`r round(sum(claims)/length(claims)*(1+sum(claims)/length(claims)),5)`$.
+
+####Distribution 3: Negative Binomial
+
+#####Maximum Likelihood Estimation
+
+We will simply assume $r=50$, and estimate $\hat{\beta}$.
+
+$$L(\beta)=\prod_{i=1}^{n}{x_i+r-1 \choose x_i}\frac{\beta^{x_i}}{(1+\beta)^{r+x_i}}$$
+$$\ell(\beta)=\left(\sum_{i=1}^{n}x_i\right)\ln{\beta}-\left(rn+\sum_{i=1}^{n}x_i\right)\ln{(1+\beta)}$$
+$$\ell'(\hat{\beta})=\frac{\sum_{i=1}^{n}x_i}{\hat{\beta}}-\frac{rn+\sum_{i=1}^{n}x_i}{1+\hat{\beta}}=\frac{(1+\hat{\beta})\sum_{i=1}^{n}x_i-\hat{\beta}\left(rn+\sum_{i=1}^{n}x_i\right)}{\hat{\beta}(1+\hat{\beta})}=0$$
+$$\sum_{i=1}^{n}x_i+\hat{\beta}\sum_{i=1}^{n}x_i=\hat{\beta} rn+\hat{\beta}\sum_{i=1}^{n}x_i$$
+$$\hat{\beta}=\frac{\sum_{i=1}^{n}x_i}{rn}=\frac{`r sum(claims)`}{`r length(claims)`*50}=`r round(mean(claims)/50,5)`$$
+
+
+#####Method of Moments
+
+$$X\sim Negative Binomial(r,\beta),\; E(X)=r\beta,\; Var(X)=r\beta(1+\beta)$$
+$$\hat{r}\hat{\beta}=E(X)=\frac{\sum_{i=1}^{n}x_i}{n}=\frac{`r sum(claims)`}{`r length(claims)`}=`r round(sum(claims)/length(claims),5)`$$
+$$\hat{r}\hat{\beta}(1+\hat{\beta})=Var(X)=\frac{\sum_{i=1}^{n}(x_i-\bar{x})^2}{n}=\frac{`r round(sum((claims-mean(claims))^2),5)`}{`r length(claims)`}=`r round(sum((claims-mean(claims))^2)/length(claims),5)`$$
+$$1+\hat{\beta}=`r round((sum((claims-mean(claims))^2)/length(claims))/(sum(claims)/length(claims)),5)`$$
+$$\hat{\beta}=`r round((sum((claims-mean(claims))^2)/length(claims))/(sum(claims)/length(claims)),5)-1`$$
+```{r calculating r and beta, echo = FALSE}
+beta <- (sum((claims-mean(claims))^2)/length(claims))/(sum(claims)/length(claims))-1
+r <- mean(claims)/beta
+```
+
+$$\hat{r}=`r round(r,5)`$$
+
+#####Summary Characteristics
+
+For the maximum likelihood estimation, the estimates for $r$ and $\beta$ are 50 and `r round(mean(claims)/50,5)`, respectively. For method of moments, the estimates for $r$ and $\beta$ are `r round(r,5)` and `r round(beta,5)`. For the Negative Binomial, using the maximum likelihood estimators gives us an expected value of $\hat{r}\hat{\beta}=50*`r round(mean(claims)/50,5)`=`r round(mean(claims),5)`$ and a variance of $\hat{r}\hat{\beta}(1+\hat{\beta})=50*`r round(mean(claims)/50,5)`(1+`r round(mean(claims)/50,5)`)=`r round(mean(claims)*(1+mean(claims)/50),5)`$. Using Method of moments gives an expected value of $\hat{r}\hat{\beta}=`r round(r,5)`*`r round(beta,5)`=`r round(r*beta,5)`$ and a variance of $\hat{r}\hat{\beta}(1+\hat{\beta})=`r round(r,5)`*`r round(beta,5)`(1+`r round(beta,5)`)=`r round(r*beta*(1+beta),5)`$.
+
+
+
+```{r Claims Parameter estimates, echo = FALSE}
+# Poisson
+lambda <- sum(claims)/length(claims)
+
+# Geometric
+beta_geom <- sum(claims)/length(claims)
+
+# Negative Binomial
+beta_nbinom <- beta
+r_nbinom <- r
+```
+
+###Losses
+
+####Distribution 1: Gamma
+
+#####Maximum Likelihood Estimation
+
+We will simply assume $\alpha=3$, and estimate $\hat{\theta}$.
+
+$$L(\theta)=\prod_{i=1}^{n}\frac{(x_i/\theta)^{\alpha}e^{-x_i/\theta}}{x_i\Gamma(\alpha)}\propto \theta^{-\alpha n}e^{-\frac{\sum_{i=1}^{n}x_i}{\theta}}$$
+$$\ell(\theta)=-\alpha n\ln{\theta}-\frac{1}{\theta}\sum_{i=1}^{n}x_i$$
+$$\ell'(\hat{\theta})=-\frac{\alpha n}{\hat{\theta}}+\frac{1}{\hat{\theta}^2}\sum_{i=1}^{n}x_i=0$$
+$$\hat{\theta}=\frac{\sum_{i=1}^{n}x_i}{\alpha n}=\frac{`r round(sum(losses),5)`}{3*`r length(losses)`}=`r round(mean(losses)/3,5)`$$
+
+#####Method of Moments
+
+$$X\sim Gamma(\alpha,\theta),\; E(X)=\alpha\theta,\; E(X^2)=(\alpha+1)\alpha\theta^2$$
+$$\hat{\alpha}\hat{\theta}=E(X)=`r round(mean(losses),5)`$$
+$$(\hat{\alpha}+1)\hat{\alpha}\hat{\theta}^2=E(X^2)=`r round(mean(losses^2),5)`$$
+$$\frac{\hat{\alpha}^2\hat{\theta}^2}{(\hat{\alpha}+1)\hat{\alpha}\hat{\theta}^2}=\frac{`r round(mean(losses)^2,5)`}{`r round(mean(losses^2),5)`}$$
+$$\frac{\hat{\alpha}}{(\hat{\alpha}+1)}=`r round(mean(losses)^2/mean(losses^2),5)`$$
+$$\hat{\alpha}(1-`r round(mean(losses)^2/mean(losses^2),5)`)=`r round(mean(losses)^2/mean(losses^2),5)`$$
+$$\hat{\alpha}=`r round(mean(losses)^2/mean(losses^2)/(1-mean(losses)^2/mean(losses^2)),5)`$$
+$$\hat{\theta}=\frac{`r round(mean(losses),5)`}{`r round(mean(losses)^2/mean(losses^2)/(1-mean(losses)^2/mean(losses^2)),5)`}=`r round(mean(losses)/(mean(losses)^2/mean(losses^2)/(1-mean(losses)^2/mean(losses^2))),5)`$$
+
+#####Summary Characteristics
+
+
+```{r calculating alpha and theta, echo = FALSE}
+  alpha1 <- 3
+  theta1 <- mean(losses)/3
+  
+  alpha2 <- mean(losses)^2/mean(losses^2)/(1-mean(losses)^2/mean(losses^2))
+  theta2 <- mean(losses)/(mean(losses)^2/mean(losses^2)/(1-mean(losses)^2/mean(losses^2)))
+```
+
+
+For the maximum likelihood estimation, the estimates for $\alpha$ and $\theta$ are 3 and `r round(theta1,5)`, respectively. For method of moments, the estimates for $\alpha$ and $\theta$ are `r round(alpha2,5)` and `r round(theta2,5)`. For the Gamma, using the maximum likelihood estimators gives us an expected value of $\hat{\alpha}\hat{\theta}=`r round(alpha1,5)`*`r round(theta1,5)`=`r round(alpha1*theta1,5)`$ and a variance of
+$\hat{\theta}^2\hat{\alpha}(\hat{\alpha}+1)-\left(\hat{\alpha}\hat{\theta}\right)^2=`r round(theta1^2,5)`*`r round(alpha1,5)`(`r round(alpha1,5)`+1)-`r round(alpha1*theta1,5)`^2=`r round(theta1^2*(1+alpha1)*alpha1-alpha1^2*theta1^2,5)`$. Using Method of moments gives an expected value of $\hat{\alpha}\hat{\theta}=`r round(alpha2,5)`*`r round(theta2,5)`=`r round(alpha2*theta2,5)`$ and a variance of
+$\hat{\theta}^2\hat{\alpha}(\hat{\alpha}+1)-\left(\hat{\alpha}\hat{\theta}\right)^2=`r round(theta2^2,5)`*`r round(alpha2,5)`(`r round(alpha2,5)`+1)-`r round(alpha2*theta2,5)`^2=`r round(theta2^2*(1+alpha2)*alpha2-alpha2^2*theta2^2,5)`$
+
+####Distribution 2: Lognormal
+
+#####Maximum Likelihood Estimation
+
+We will simply assume $\sigma=1$, and estimate $\hat{\mu}$.
+
+$$L(\mu)=\prod_{i=1}^{n}\frac{1}{x_i\sqrt{2\sigma^2\pi}}e^{-\frac{\left(\ln{x_i}-\mu\right)^2}{2\sigma^2}}\propto e^{-\sum_{i=1}^{n}\frac{\left(\ln{x_i}-\mu\right)^2}{2\sigma^2}}$$
+$$\ell(\mu)=-\sum_{i=1}^{n}\frac{\left(\ln{x_i}-\mu\right)^2}{2\sigma^2}=-\sum_{i=1}^{n}\frac{(\ln{x_i})^2-2\mu\ln{x_i}+\mu^2}{2\sigma^2}=\frac{1}{\sigma^2}\left[\mu\sum_{i=1}^{n}\ln{x_i}-\frac{1}{2}\sum_{i=1}^{n}(\ln{x_i})^2-\frac{1}{2}n\mu^2\right]$$
+$$\ell'(\hat{\mu})=\frac{\sum_{i=1}^{n}\ln{x_i}}{\sigma^2}-n\hat{\mu}=0$$
+$$\hat{\mu}=\frac{\sum_{i=1}^{n}\ln{x_i}}{n\sigma^2}=\frac{`r round(sum(log(losses)),5)`}{`r length(losses)`*1}=`r round(sum(log(losses))/length(losses),5)`$$
+
+#####Method of Moments
+
+$$X\sim Lognormal(\mu,\sigma),\; E(X)=e^{\mu+\sigma^2/2},\; E(X^2)=e^{2\mu+4\sigma^2/2}=e^{2\mu+2\sigma^2}$$
+$$e^{\hat{\mu}+\hat{\sigma}^2/2}=E(X)=`r round(mean(losses),5)`$$
+$$e^{2\hat{\mu}+2\hat{\sigma}^2}=E(X^2)=`r round(mean(losses^2),5)`$$
+$$\frac{\left(e^{\hat{\mu}+\hat{\sigma}^2/2}\right)^2}{e^{2\hat{\mu}+2\hat{\sigma}^2}}=e^{-\hat{\sigma}^2}=\frac{`r round(mean(losses),5)`^2}{`r round(mean(losses^2),5)`}=`r round(mean(losses)^2/mean(losses^2),5)`$$
+$$\hat{\sigma}=\sqrt{-\ln{`r round(mean(losses)^2/mean(losses^2),5)`}}=`r round(sqrt(-log(mean(losses)^2/mean(losses^2))),5)`$$
+$$\hat{\mu}=\ln{`r round(mean(losses),5)`}-`r round(sqrt(-log(mean(losses)^2/mean(losses^2))),5)`^2/2=`r round(log(mean(losses))-sqrt(-log(mean(losses)^2/mean(losses^2)))^2/2,5)`$$
+
+
+#####Summary Characteristics
+
+
+```{r calculating mu and sigma, echo = FALSE}
+mu1 <- sum(log(losses))/length(losses)
+sigma1 <- 1
+
+mu2 <- log(mean(losses))-sqrt(-log(mean(losses)^2/mean(losses^2)))^2/2
+sigma2 <- sqrt(-log(mean(losses)^2/mean(losses^2)))
+```
+
+
+For the maximum likelihood estimation, the estimates for $\mu$ and $\sigma$ are `r round(mu1,5)` and `r round(sigma1,5)`, respectively. For method of moments, the estimates for $\mu$ and $\sigma$ are `r round(mu2,5)` and `r round(sigma2,5)`. For the Lognormal, using the maximum likelihood estimators gives us an expected value of $e^{\hat{\mu}+\hat{\sigma}^2/2}=e^{`r round(mu1,5)`+`r round(sigma1,5)`^2/2}=`r round(exp(mu1+sigma1^2/2),5)`$ and a variance of
+$e^{2\hat{\mu}+2^2\hat{\sigma}^2/2}-e^{2\hat{\mu}+2\hat{\sigma}^2/2}=e^{2*`r round(mu1,5)`+2*`r round(sigma1,5)`^2}-`r round(exp(mu1+sigma1^2/2),5)`^2=`r round(exp(2*mu1+2*sigma1^2)-exp(mu1+sigma1^2/2)^2,5)`$. 
+Using Method of moments gives an expected value of $e^{\hat{\mu}+\hat{\sigma}^2/2}=e^{`r round(mu2,5)`+`r round(sigma2,5)`^2/2}=`r round(exp(mu2+sigma2^2/2),5)`$ and a variance of $e^{2\hat{\mu}+2^2\hat{\sigma}^2/2}-e^{2\hat{\mu}+2\hat{\sigma}^2/2}=e^{2*`r round(mu2,5)`+2*`r round(sigma2,5)`^2}-`r round(exp(mu2+sigma2^2/2),5)`^2=`r round(exp(2*mu2+2*sigma2^2)-exp(mu2+sigma2^2/2)^2,5)`$.
+
+
+####Distribution 3: Pareto
+
+#####Maximum Likelihood Estimation
+
+We will simply assume $\theta=500$, and estimate $\hat{\alpha}$.
+
+$$L(\alpha)=\prod_{i=1}^{n}\frac{\alpha\theta^\alpha}{(x_i+\theta)^{\alpha+1}}\propto\frac{\alpha^n\theta^{n\alpha}}{\prod_{i=1}^{n}(x_i+\theta)^{\alpha+1}}$$
+$$\ell(\alpha)=n\ln{\alpha}+n\alpha\ln{\theta}-(\alpha+1)\sum_{i=1}^{n}\ln{(x_i+\theta)}$$
+$$\ell'(\hat{\alpha})=\frac{n}{\hat{\alpha}}+n\ln{\theta}-\sum_{i=1}^{n}\ln{(x_i+\theta)}=0$$
+$$\hat{\alpha}=\frac{1}{\frac{\sum_{i=1}^{n}\ln{(x_i+\theta)}}{n}-\ln{\theta}}=\frac{1}{\frac{`r round(sum(log(losses+500)),5)`}{`r round(length(losses),5)`}-\ln{500}}=`r round(1/(mean(log(losses+500))-log(500)),5)`$$
+
+
+#####Method of Moments
+
+$$X\sim Pareto(\alpha,\theta),\; E(X)=\frac{\theta}{(\alpha-1)},\; E(X^2)=\frac{\theta^2}{(\alpha-1)(\alpha-2)}$$
+
+$$\frac{\hat{\theta}}{(\hat{\alpha}-1)}=E(X)=`r round(mean(losses),5)`$$
+$$\frac{\hat{\theta}^2}{(\hat{\alpha}-1)(\hat{\alpha}-2)}=E(X^2)=`r round(mean(losses^2),5)`$$
+$$\frac{\left(\frac{\hat{\theta}}{(\hat{\alpha}-1)}\right)^2}{\frac{2\hat{\theta}^2}{(\hat{\alpha}-1)(\hat{\alpha}-2)}}=\frac{\hat{\alpha}-2}{2(\hat{\alpha}-1)}=\frac{`r round(mean(losses),5)`^2}{`r round(mean(losses^2),5)`}=`r round(mean(losses)^2/mean(losses^2),5)`$$
+$$\hat{\alpha}=2\hat{\alpha}`r round(mean(losses)^2/mean(losses^2),5)`-2*`r round(mean(losses)^2/mean(losses^2),5)`+2$$
+$$\hat{\alpha}=\frac{2-`r round(mean(losses)^2/mean(losses^2),5)`}{2-`r round(2*mean(losses)^2/mean(losses^2),5)`}=`r round((2-mean(losses)^2/mean(losses^2))/(2-2*mean(losses)^2/mean(losses^2)),5)`$$
+$$\hat{\theta}=`r round(mean(losses),5)`(`r round((2-mean(losses)^2/mean(losses^2))/(1-mean(losses)^2/mean(losses^2)),5)`-1)=`r round(mean(losses)*((2-mean(losses)^2/mean(losses^2))/(1-mean(losses)^2/mean(losses^2))-1),5)`$$
+
+#####Summary Characteristics
+
+```{r calculating alpha and theta of Pareto, echo = FALSE}
+alpha3 <- 1/(mean(log(losses+500))-log(500))
+theta3 <- 500
+
+alpha4 <- (2-mean(losses)^2/mean(losses^2))/(1-mean(losses)^2/mean(losses^2))
+theta4 <- mean(losses)*((2-mean(losses)^2/mean(losses^2))/(1-mean(losses)^2/mean(losses^2))-1)
+```
+
+
+For the maximum likelihood estimation, the estimates for $\alpha$ and $\theta$ are `r round(alpha3,5)` and `r round(theta3,5)`, respectively. For method of moments, the estimates for $\alpha$ and $\theta$ are `r round(alpha4,5)` and `r round(theta4,5)`. For the Pareto, using the maximum likelihood estimators gives us an expected value of $\frac{\hat{\theta}}{\hat{\alpha}-1}=\frac{`r round(theta3,5)`}{`r round(alpha3,5)`}=`r round(theta3/(alpha3-1),5)`$ and a variance of
+$\frac{2\hat{\theta}^2}{(\hat{\alpha}-1)(\hat{\alpha}-2)}=\frac{2`r round(theta3,5)^2`}{(`r round(alpha3,5)`-1)(`r round(alpha3,5)`-2)}=`r round(2*theta3^2/((alpha3-1)*(alpha3-2)),5)`$. Using method of moments gives an expected value of $\frac{\hat{\theta}}{\hat{\alpha}-1}=\frac{`r round(theta4,5)`}{`r round(alpha4,5)`}=`r round(theta4/(alpha4-1),5)`$ and a variance of
+$\frac{2\hat{\theta}^2}{(\hat{\alpha}-1)(\hat{\alpha}-2)}=\frac{2`r round(theta4,5)^2`}{(`r round(alpha4,5)`-1)(`r round(alpha4,5)`-2)}=`r round(2*theta4^2/((alpha4-1)*(alpha4-2)),5)`$.
+
+```{r Losses Parameter estimates, echo = FALSE}
+# Gamma
+alpha_gamma <- alpha2
+theta_gamma <- theta2
+
+# Lognormal
+mu <- mu2
+sigma <- sigma2
+
+# Pareto
+alpha_par <- alpha4
+theta_par <- theta4
+```
+
+
+
+##Model Selection
+
+Using the method of moments estimates as the best approximations for the parameters, this report will analyze the fit of each of the six distributions. This report uses the method of moments estimators, because for each one-parameter distribution, the estimates were the same. For each two-paramter distribution, a simple guess was chosen for one parameter and a maximum likelihood was applied to find the other. A method of moments estimation for both parameters at one time is likely more accurate than a guess.   
+  
+The three methods of comparison are the Kolmogorov-Smirnov (KS) test, the $\chi^2$ test, and the Schwarz-Bayesian Criterion (SBC). This report will look at the three distributions for claims, followed by the three distributions for losses. We are finding the best of the three distributions for each dataset and not simply testing each one individually for fit; therefore, this report will compare any test statistics to each other, instead of to a predeterimined critical value. 
+
+###Claims
+
+####Choice of Parameters
+
+For all three discrete distributions, I decided to use the method of moments estimators instead of the maximum likelihood estimators. For the Poisson, $\hat{\lambda}=`r round(lambda,5)`$. For the Geometric, $\hat{\beta}=`r round(beta_geom,5)`$. For the Negative Binomial, $\hat{r}=`r round(r_nbinom,5)`$ and $\hat{\beta}=`r round(beta_nbinom,5)`$.
+
+For the $\chi^2$ test, bins of $(-\infty,2]$, $(2,4]$, $(4,6]$, $(6,8]$, and $(8,\infty)$ were assigned.  
+
+####Distribution 1: Poisson(`r round(lambda,2)`)
+
+#####Kolmogorov-Smirnov Test Statistic
+
+```{r KS Poisson, echo = FALSE}
+Fn.minus <- cumsum(c(0,table(claims)/250))[-length(table(claims))]
+Fn.plus <- cumsum(table(claims)/250)
+Fx.pois <- ppois(0:10,lambda)
+ks.pois <- max(abs(Fx.pois-Fn.minus),abs(Fx.pois-Fn.plus))
+```
+
+The calculated $KS$ test statistic for the Poisson was $\max{\{|F_X(x)-F_n(x)^-|,|F_X(x)-F_n(x)^+|\}}=`r round(ks.pois,5)`$.
+
+#####Chi-squared Test Statistic
+
+```{r Chi-Sqr Poisson, echo = FALSE}
+n <- length(claims)
+
+pni <- c(mean(claims %in% 0:2),mean(claims %in% 3:4),
+         mean(claims %in% 5:6),mean(claims %in% 7:8),
+         mean(claims %in% 9:25))
+pi.pois <- ppois(c(2,4,6,8,Inf), lambda)-ppois(c(-Inf,2,4,6,8), lambda)
+
+chi.pois <- sum(n*(pni-pi.pois)^2/pi.pois)
+```
+
+The calculated $\chi^2$ test statistic for the Poisson was $\sum_{i=1}^k\frac{n(p_{ni}-\hat{p}_i)^2}{\hat{p}_i}=`r round(chi.pois,5)`$.
+
+#####Schwartz-Bayesian Criterion
+
+```{r SBC Poisson, echo = FALSE}
+sbc.pois <- sum(dpois(claims, lambda, log = TRUE)) - .5 * 1 * log(n)
+```
+
+The calculated SBC for the Poisson was $\ell(\hat{\lambda})-\frac{1}{2}k\ln{n}=`r round(sbc.pois,5)`$.
+
+####Distribution 2: Geometric(`r round(beta_geom,2)`)
+
+#####Kolmogorov-Smirnov Test Statistic
+
+```{r KS Geometric, echo = FALSE}
+my.pgeom <- function(x,beta){
+  result <- numeric()
+  
+  for(j in 1:length(x)){
+    x[j] <- ifelse(x[j] < 0, 0, x[j])
+    result[j] <- 0
+    for(i in 0:ifelse(x[j]==Inf,100,x[j])){
+      result[j] <- result[j] + (beta^i)/((1+beta)^(i+1))
+    }
+  }
+  
+  result
+}
+
+Fx.geom <- my.pgeom(0:10,beta_geom)
+ks.geom <- max(abs(Fx.geom-Fn.minus),abs(Fx.geom-Fn.plus))
+```
+
+The calculated $KS$ test statistic for the Geometric was $\max{\{|F_X(x)-F_n(x)^-|,|F_X(x)-F_n(x)^+|\}}=`r round(ks.geom,5)`$.
+
+#####Chi-squared Test Statistic
+
+```{r Chi-Sqr Geometric, echo = FALSE}
+pi.geom <- my.pgeom(c(2,4,6,8,Inf), beta_geom)-my.pgeom(c(-Inf,2,4,6,8), beta_geom)
+
+chi.geom <- sum(n*(pni-pi.geom)^2/pi.geom)
+```
+
+The calculated $\chi^2$ test statistic for the Geometric was $\sum_{i=1}^k\frac{n(p_{ni}-\hat{p}_i)^2}{\hat{p}_i}=`r round(chi.geom,5)`$.
+
+#####Schwartz-Bayesian Criterion
+
+```{r SBC Geometric, echo = FALSE}
+my.dgeom <- function(x,beta,log=FALSE){
+  result <- numeric()
+  
+  for(j in 1:length(x)){
+    
+    result[j] <- (beta^x[j])/((1+beta)^(x[j]+1))
+    result[j] <- ifelse(log,log(result[j]),result[j])
+  }
+  
+  result
+}
+
+
+sbc.geom <- sum(my.dgeom(claims, beta_geom, log = TRUE)) - .5 * 1 * log(n)
+```
+
+The calculated SBC for the Geometric was $\ell(\hat{\beta})-\frac{1}{2}k\ln{n}=`r round(sbc.geom,5)`$.
+
+####Distribution 3: Negative Binomial(`r round(r_nbinom,2)`, `r round(beta_nbinom,2)`)
+
+#####Kolmogorov-Smirnov Test Statistic
+
+```{r KS Negative Binomial, echo = FALSE}
+my.pnbinom <- function(x,r,beta){
+  result <- numeric()
+  
+  for(j in 1:length(x)){
+    x[j] <- ifelse(x[j] < 0, -1, ifelse(x[j]==Inf,100,x[j]))
+    
+    result[j] <- 0
+    for(i in 0:x[j]){
+      if(x[j]<0){
+        result[j] <- 0
+      } else {
+        result[j] <- result[j] + (gamma(r+i)*beta^i)/(gamma(r)*factorial(i)*(1+beta)^(r+i))
+      }
+    }
+  }
+  
+  result
+}
+
+Fx.nbinom <- my.pnbinom(0:10,r_nbinom,beta_nbinom)
+ks.nbinom <- max(abs(Fx.nbinom-Fn.minus),abs(Fx.nbinom-Fn.plus))
+```
+
+The calculated $KS$ test statistic for the Negative Binomial was $\max{\{|F_X(x)-F_n(x)^-|,|F_X(x)-F_n(x)^+|\}}=`r round(ks.nbinom,5)`$.
+
+#####Chi-squared Test Statistic
+
+```{r Chi-Sqr Negative Binomial, echo = FALSE}
+pi.nbinom <- my.pnbinom(c(2,4,6,8,Inf), r_nbinom, beta_nbinom)-my.pnbinom(c(-Inf,2,4,6,8), r_nbinom, beta_nbinom)
+
+chi.nbinom <- sum(n*(pni-pi.nbinom)^2/pi.nbinom)
+```
+
+The calculated $\chi^2$ test statistic for the Negative Binomial was $\sum_{i=1}^k\frac{n(p_{ni}-\hat{p}_i)^2}{\hat{p}_i}=`r round(chi.nbinom,5)`$.
+
+#####Schwartz-Bayesian Criterion
+
+```{r SBC Negative Binomial, echo = FALSE}
+my.dnbinom <- function(x,r,beta,log=FALSE){
+  result <- numeric()
+  
+  for(j in 1:length(x)){
+    
+    result[j] <- (gamma(r+x[j])*beta^x[j])/(gamma(r)*factorial(x[j])*(1+beta)^(r+x[j]))
+    result[j] <- ifelse(log,log(result[j]),result[j])
+    
+  }
+  
+  result
+}
+
+
+sbc.nbinom <- sum(my.dnbinom(claims,r_nbinom,beta_nbinom, log = TRUE)) - .5 * 2 * log(n)
+```
+
+The calculated SBC for the Negative Binomial was $\ell(\hat{r},\hat{\beta})-\frac{1}{2}k\ln{n}=`r round(sbc.nbinom,5)`$.
+
+###Summary of Tests for Claims
+
+Table 3 below summarizes the results of the three tests of model fit for each of the three distributions on claims data. Subsequently, Figure 3 shows the different probability mass functions and how they compare to the observed claims data.
+
+Table 3: Summary of Tests for Claims
+```{r Summary for Discrete tests, echo = FALSE, fig.height=3.6, fig.width = 8}
+table3 <- cbind("KS"=c(round(ks.pois,3),round(ks.geom,3),round(ks.nbinom,3)), 
+                          "Chi-Sqr"=c(round(chi.pois,2),round(chi.geom,2),round(chi.nbinom,2)), 
+                          "SBC"=c(round(sbc.pois,2),round(sbc.geom,2),round(sbc.nbinom,2)))
+rownames(table3) <- c("Poisson","Geometric","N. Binomial")
+pander::pander(table3)
+
+
+plot(0:10+.04,my.dgeom(0:10,beta_geom), type = 'h', col = "blue", xlab = "Claims", 
+     ylab = expression(f(Claims)), main = "Figure 3: Approximated PMFs for Claims", lwd = 3)
+lines(0:10-.12,table(claims)/250,type = 'h', lwd = 5)
+lines(0:10-.04,dpois(0:10,lambda),type = 'h', col = 2, lwd = 3)
+lines(0:10+.12,my.dnbinom(0:10,r_nbinom,beta_nbinom), type = 'h', col = "darkgreen", lwd = 3)
+legend(legend = c("Observed", "Poisson", "Geometric", "N. Binomial"), x = 5.5, y = .25,
+       col = c("black", "red", "blue", "darkgreen"), lwd = c(5,3,3,3))
+```
+
+###Losses
+
+For all three continuous distributions, I decided to use the method of moments estimators instead of the maximum likelihood estimators. For the Gamma, $\hat{\alpha}=`r round(alpha_gamma,5)`$ and $\hat{\theta}=`r round(theta_gamma,5)`$. For the Lognormal, $\hat{\mu}=`r round(mu,5)`$ and $\hat{\sigma}=`r round(sigma,5)`$. For the Pareto, $\hat{\alpha}=`r round(alpha_par,5)`$ and $\hat{\theta}=`r round(theta_par,5)`$.
+
+For the $\chi^2$ test, bins of $(-\infty,75]$, $(75,150]$, $(150,225]$, $(225,\infty)$ were assigned.
+
+####Distribution 1: Gamma(`r round(alpha_gamma,2)`, `r round(theta_gamma,2)`)
+
+#####Kolmogorov-Smirnov Test Statistic
+
+```{r KS Gamma, echo = FALSE}
+Fn.minus <- cumsum(c(0,table(losses)/1000))[-length(table(losses))]
+Fn.plus <- cumsum(table(losses)/1000)
+Fx.gamma <- pgamma(as.numeric(names(table(losses))),alpha_gamma,1/theta_gamma)
+ks.gamma <- max(abs(Fx.gamma-Fn.minus),abs(Fx.gamma-Fn.plus))
+```
+
+The calculated $KS$ test statistic for the Gamma was $\max{\{|F_X(x)-F_n(x)^-|,|F_X(x)-F_n(x)^+|\}}=`r round(ks.gamma,5)`$.
+
+#####Chi-squared Test Statistic
+
+```{r Chi-Sqr Gamma, echo = FALSE}
+n <- length(losses)
+
+pni <- c(mean(losses <= 75), mean(losses > 75 & losses <= 150),
+         mean(losses > 150 & losses <= 225),mean(losses > 225))
+pi.gamma <- pgamma(c(75,150,225,2000), alpha_gamma,1/theta_gamma) -
+               pgamma(c(0,75,150,225), alpha_gamma,1/theta_gamma)
+
+chi.gamma <- sum(n*(pni-pi.gamma)^2/pi.gamma)
+```
+
+The calculated $\chi^2$ test statistic for the Gamma was $\sum_{i=1}^k\frac{n(p_{ni}-\hat{p}_i)^2}{\hat{p}_i}=`r round(chi.gamma,5)`$.
+
+#####Schwartz-Bayesian Criterion
+
+```{r SBC Gamma, echo = FALSE}
+sbc.gamma <- sum(dgamma(losses, alpha_gamma, 1/theta_gamma, log = TRUE)) - .5 * 2 * log(n)
+```
+
+The calculated SBC for the Gamma was $\ell(\hat{\alpha},\hat{\theta})-\frac{1}{2}k\ln{n}=`r round(sbc.gamma,5)`$.
+
+####Distribution 2: Lognormal(`r round(mu,2)`, `r round(sigma,2)`)
+
+#####Kolmogorov-Smirnov Test Statistic
+
+```{r KS Lognormal, echo = FALSE}
+Fx.lnorm <- plnorm(as.numeric(names(table(losses))),mu,sigma)
+ks.lnorm <- max(abs(Fx.lnorm-Fn.minus),abs(Fx.lnorm-Fn.plus))
+```
+
+The calculated $KS$ test statistic for the Lognormal was $\max{\{|F_X(x)-F_n(x)^-|,|F_X(x)-F_n(x)^+|\}}=`r round(ks.lnorm,5)`$.
+
+
+#####Chi-squared Test Statistic
+
+```{r Chi-Sqr Lognormal, echo = FALSE}
+pi.lnorm <- plnorm(c(75,150,225,2000), mu,sigma) -
+               plnorm(c(0,75,150,225), mu,sigma)
+
+chi.lnorm <- sum(n*(pni-pi.lnorm)^2/pi.lnorm)
+```
+
+The calculated $\chi^2$ test statistic for the Lognormal was $\sum_{i=1}^k\frac{n(p_{ni}-\hat{p}_i)^2}{\hat{p}_i}=`r round(chi.lnorm,5)`$.
+
+#####Schwartz-Bayesian Criterion
+
+```{r SBC Lognormal, echo = FALSE}
+sbc.lnorm <- sum(dlnorm(losses, mu, sigma, log = TRUE)) - .5 * 2 * log(n)
+```
+
+The calculated SBC for the Lognormal was $\ell(\hat{\mu},\hat{\sigma})-\frac{1}{2}k\ln{n}=`r round(sbc.lnorm,5)`$.
+
+####Distribution 3: Pareto(`r round(alpha_par,2)`, `r round(theta_par,2)`)
+
+#####Kolmogorov-Smirnov Test Statistic
+
+```{r KS Pareto, echo = FALSE}
+my.ppareto <- function(x,alpha,theta){
+  result <- numeric()
+  for(i in 1:length(x)){
+    result[i] <- 1-(theta/(x[i]+theta))^alpha 
+  }
+  result
+}
+
+Fx.par <- my.ppareto(as.numeric(names(table(losses))),alpha_par,theta_par)
+ks.par <- max(abs(Fx.par-Fn.minus),abs(Fx.par-Fn.plus))
+```
+
+The calculated $KS$ test statistic for the Pareto was $\max{\{|F_X(x)-F_n(x)^-|,|F_X(x)-F_n(x)^+|\}}=`r round(ks.par,5)`$.
+
+#####Chi-squared Test Statistic
+
+```{r Chi-Sqr Pareto, echo = FALSE}
+pi.par <- my.ppareto(c(75,150,225,2000), alpha_par,theta_par) -
+               my.ppareto(c(0,75,150,225), alpha_par,theta_par)
+
+chi.par <- sum(n*(pni-pi.par)^2/pi.par)
+```
+
+The calculated $\chi^2$ test statistic for the Pareto was $\sum_{i=1}^k\frac{n(p_{ni}-\hat{p}_i)^2}{\hat{p}_i}=`r round(chi.par,5)`$.
+
+#####Schwartz-Bayesian Criterion
+
+```{r SBC Pareto, echo = FALSE}
+my.dpareto <- function(x,alpha,theta,log = FALSE){
+  result <- numeric()
+  for(i in 1:length(x)){
+    result[i] <- (alpha*(theta^alpha))/((x[i]+theta)^(alpha+1))
+    result[i] <- ifelse(log,log(result[i]),result[i])
+  }
+  result
+}
+
+sbc.par <- sum(my.dpareto(losses, alpha_par, theta_par, log = TRUE)) - .5 * 2 * log(n)
+```
+
+The calculated SBC for the Pareto was $\ell(\hat{\alpha},\hat{\theta})-\frac{1}{2}k\ln{n}=`r round(sbc.par,5)`$.
+
+
+###Summary of Tests for Losses
+
+Table 4 below summarizes the results of the three tests of model fit for the distributions for losses data. Figure 4 then shows the different density functions and how they compare to the observed density of the losses data.
+
+Table 4: Summary of Tests for Losses
+```{r Summary for Continuous tests, echo = FALSE, fig.height=3.6, fig.width = 8}
+table4 <- cbind("KS"=c(round(ks.gamma,3),round(ks.lnorm,3),round(ks.par,3)), 
+                          "Chi-Sqr"=c(round(chi.gamma,2),round(chi.lnorm,2),round(chi.par,2)), 
+                          "SBC"=c(round(sbc.gamma,2),round(sbc.lnorm,2),round(sbc.par,2)))
+rownames(table4) <- c("Gamma","Lognormal","Pareto")
+pander::pander(table4)
+
+
+curve(my.dpareto(x,alpha_par,theta_par), xlim = c(0,1000), col = "darkgreen", lwd = 1,
+      main = "Figure 4: Approximated PDFs for Losses", xlab = "Losses", ylab = expression(f(Losses)))
+lines(density(losses), lwd = 3)
+curve(dgamma(x,alpha_gamma,1/theta_gamma), add = TRUE, col = 2, lwd = 1)
+curve(dlnorm(x,mu,sigma), add = TRUE, col = "blue", lwd = 1)
+legend(legend = c("Observed", "Gamma", "Lognormal", "Pareto"), x = 500, y = .006,
+       col = c("black", "red", "blue", "darkgreen"), lwd = c(3,1,1,1))
+```
+
+##Conclusion
+
+The Negative Binomial distribution is the optimal choice for the claims data, and the Lognormal distribution is the best for the losses data.
+
+This section summarizes the findings from the various tests of the different distributions as well as the justification for the above recommendation of model selection.   
+  
+A review of the different assessments of fit will lead to the selection of a distribution for claims as well as for losses. These selections will determine an aggregate loss estimated mean and variance, which will be reported in the recommendation subsection.
+
+###Claims
+
+By looking at Figure 1 (the plot of the different estimated probability mass functions from the different distributions), one could easily see that the fit of the Poisson distribution or the Negative Binomial distribution seems to be much better than that of the Geometric.   
+  
+The various tests confirm this theory. According to the SBC, the Poisson distribution fits the claims data the best (SBC: `r round(sbc.pois,2)` as compared to `r round(sbc.nbinom,2)` or `r round(sbc.geom,2)`); however, both the KS and $\chi^2$ tests support the Negative Binomial distribution (`r round(ks.nbinom,3)` and `r round(chi.nbinom,3)` as compared to `r round(ks.pois,3)` and `r round(chi.pois,3)` or `r round(ks.geom,3)` and `r round(chi.geom,3)`). In reality, the practical differences in these tests between the Poisson and Negative Binomial are near negligible. This report will use the $Negative Binomial(\hat{r}\approx`r round(r_nbinom,2)`, \hat{\beta}\approx`r round(beta_nbinom,2)`)$ as the best fit for the claims data. This distribution has an expected value of $`r round(r*beta,2)`$ and a variance of $`r round(r*beta*(1+beta),2)`$.
+
+
+###Losses
+
+For losses, Lognormal distribution was unanimously the best among the three different tests. Using the KS test, its test statistic value was `r round(ks.lnorm,2)` as compared to `r round(ks.gamma,2)` and `r round(ks.par,2)` for the Gamma and the Pareto distributions, respectively. The SBC of the Lognormal was `r round(sbc.lnorm,2)` as compared to `r round(sbc.gamma,2)` and `r round(sbc.par,2)` for the other two. Finally, the $\chi^2$ test statistic was `r round(chi.lnorm,2)` for the Lognormal distribution as compared to `r round(chi.gamma,2)` and `r round(chi.par,2)` for the Gamma and the Pareto distributions.   
+  
+This report will use the $Lognormal(\hat{\mu}\approx`r round(mu,2)`, \hat{\sigma}\approx`r round(sigma,2)`)$ as the best fit for the losses data. This distribution has an expected value of $`r round(exp(mu2+sigma2^2/2),2)`$ and a variance of $`r format(round(exp(2*mu2+2*sigma2^2)-exp(mu2+sigma2^2/2)^2,2),scientific=FALSE)`$.
+
+###Aggregate Losses
+
+The expected aggregate losses are calculated as follows:
+
+$$E_S(S)=E_N(N)E_X(X)\approx`r round(r*beta,2)`*`r round(exp(mu2+sigma2^2/2),2)`\approx`r round(r*beta*exp(mu2+sigma2^2/2),2)`$$
+
+The approximate variance of the aggregate losses are calculated as follows:
+
+$$Var_S(S)=E_N(N)Var_X(X)+\left[E_X(X)\right]^2Var_N(N)$$
+$$\approx`r round(r*beta,2)`*`r format(round(exp(2*mu2+2*sigma2^2)-exp(mu2+sigma2^2/2)^2,2),scientific=FALSE)`+`r format(round(exp(mu2+sigma2^2/2),2),scientific=FALSE)`^2*`r round(r*beta*(1+beta),2)`\approx`r format(round(r*beta*(exp(2*mu2+2*sigma2^2)-exp(mu2+sigma2^2/2)^2)+((exp(mu2+sigma2^2/2))^2)*r*beta*(1+beta),2),scientific=FALSE)`$$
+```{r Aggregate Loss Estimation, echo = FALSE}
+samp.of <- function(x) sum(rlnorm(rnbinom(1,r_nbinom,1/(1+beta_nbinom)),mu,sigma))
+
+y <- sapply(1:10000, samp.of)
+
+AL.mean <- mean(y)
+AL.Var <- var(y)
+```
+
+Using Monte Carlo Approximation (from 10000 simulations), the mean aggregate loss was $`r format(round(AL.mean,2),scientific = FALSE)`$ and the variance was $`r format(round(AL.Var,2),scientific = FALSE)`$.
+  
+#####These data do not have a perfect fit for any particular distributions, but the Negative Binomial and the Lognormal seem to be solid estimates for the true distribution of number of claims and losses. 
+
+
+######
+
+##Appendix: R Code
+
+####Reading in Data
+
+```{r Reading_in_data_code, echo=T, eval = FALSE, results='hide', fig.show = 'hide'}
+# Reading in the data
+claims <- read.csv("[Path]/Claims.csv")
+losses <- read.csv("[Path]/Losses.csv")
+
+# Looking at the data
+pander::pander(summary(claims[,2]))
+pander::pander(summary(losses[,2]))
+
+# Formatting data as vectors
+claims <- claims[,2]
+losses <- losses[,2]
+```
+
+
+####Claims Parameters
+
+```{r Claims_parameters_code, echo=T, results='hide', fig.show = 'hide'}
+# Poisson
+lambda <- sum(claims)/length(claims)
+
+# Geometric
+beta_geom <- sum(claims)/length(claims)
+
+# Negative Binomial
+beta_nbinom <- (sum((claims-mean(claims))^2)/length(claims))/(sum(claims)/length(claims))-1
+r_nbinom <- mean(claims)/beta
+```
+
+
+####Losses Parameters
+
+```{r Losses_parameters_code, echo=T, results='hide', fig.show = 'hide'}
+# Gamma
+alpha1 <- 3
+theta1 <- mean(losses)/3
+  
+alpha2 <- mean(losses)^2/mean(losses^2)/(1-mean(losses)^2/mean(losses^2))
+theta2 <- mean(losses)/(mean(losses)^2/mean(losses^2)/(1-mean(losses)^2/mean(losses^2)))
+
+alpha_gamma <- alpha2
+theta_gamma <- theta2
+
+
+# Lognormal
+mu1 <- sum(log(losses))/length(losses)
+sigma1 <- 1
+
+mu2 <- log(mean(losses))-sqrt(-log(mean(losses)^2/mean(losses^2)))^2/2
+sigma2 <- sqrt(-log(mean(losses)^2/mean(losses^2)))
+
+mu <- mu2
+sigma <- sigma2
+
+
+# Pareto
+alpha3 <- 1/(mean(log(losses+500))-log(500))
+theta3 <- 500
+
+alpha4 <- (2-mean(losses)^2/mean(losses^2))/(1-mean(losses)^2/mean(losses^2))
+theta4 <- mean(losses)*((2-mean(losses)^2/mean(losses^2))/(1-mean(losses)^2/mean(losses^2))-1)
+
+alpha_par <- alpha4
+theta_par <- theta4
+```
+
+
+####Tests for Claims
+
+```{r Claims_tests_code, echo=T, results='hide', fig.show = 'hide'}
+########################################################################
+##########                       Poisson                      
+########################################################################
+
+# KS Test
+Fn.minus <- cumsum(c(0,table(claims)/250))[-length(table(claims))]
+Fn.plus <- cumsum(table(claims)/250)
+Fx.pois <- ppois(0:10,lambda)
+ks.pois <- max(abs(Fx.pois-Fn.minus),abs(Fx.pois-Fn.plus))
+
+# Chi-Sqr Test
+n <- length(claims)
+pni <- c(mean(claims %in% 0:2),mean(claims %in% 3:4),
+         mean(claims %in% 5:6),mean(claims %in% 7:8),
+         mean(claims %in% 9:25))
+pi.pois <- ppois(c(2,4,6,8,Inf), lambda)-ppois(c(-Inf,2,4,6,8), lambda)
+chi.pois <- sum(n*(pni-pi.pois)^2/pi.pois)
+
+# SBC
+sbc.pois <- sum(dpois(claims, lambda, log = TRUE)) - .5 * 1 * log(n)
+
+
+########################################################################
+##########                      Geometric                    
+########################################################################
+
+# KS Test
+my.pgeom <- function(x,beta){
+  result <- numeric()
+  for(j in 1:length(x)){
+    x[j] <- ifelse(x[j] < 0, 0, x[j])
+    result[j] <- 0
+    for(i in 0:ifelse(x[j]==Inf,100,x[j])){
+      result[j] <- result[j] + (beta^i)/((1+beta)^(i+1))
+    }
+  }
+  result
+}
+Fx.geom <- my.pgeom(0:10,beta_geom)
+ks.geom <- max(abs(Fx.geom-Fn.minus),abs(Fx.geom-Fn.plus))
+
+# Chi-Sqr Test
+pi.geom <- my.pgeom(c(2,4,6,8,Inf), beta_geom)-my.pgeom(c(-Inf,2,4,6,8), beta_geom)
+chi.geom <- sum(n*(pni-pi.geom)^2/pi.geom)
+
+# SBC
+my.dgeom <- function(x,beta,log=FALSE){
+  result <- numeric()
+  for(j in 1:length(x)){
+    result[j] <- (beta^x[j])/((1+beta)^(x[j]+1))
+    result[j] <- ifelse(log,log(result[j]),result[j])
+  }
+  result
+}
+sbc.geom <- sum(my.dgeom(claims, beta_geom, log = TRUE)) - .5 * 1 * log(n)
+
+########################################################################
+##########                  Negative Binomial              
+########################################################################
+
+# KS Test
+my.pnbinom <- function(x,r,beta){
+  result <- numeric()
+  for(j in 1:length(x)){
+    x[j] <- ifelse(x[j] < 0, -1, ifelse(x[j]==Inf,100,x[j]))
+    result[j] <- 0
+    for(i in 0:x[j]){
+      if(x[j]<0){
+        result[j] <- 0
+      } else {
+        result[j] <- result[j] + (gamma(r+i)*beta^i)/(gamma(r)*factorial(i)*(1+beta)^(r+i))
+      }
+    }
+  }
+  result
+}
+Fx.nbinom <- my.pnbinom(0:10,r_nbinom,beta_nbinom)
+ks.nbinom <- max(abs(Fx.nbinom-Fn.minus),abs(Fx.nbinom-Fn.plus))
+
+# Chi-Sqr Test
+pi.nbinom <- my.pnbinom(c(2,4,6,8,Inf), r_nbinom, beta_nbinom) -
+    my.pnbinom(c(-Inf,2,4,6,8), r_nbinom, beta_nbinom)
+chi.nbinom <- sum(n*(pni-pi.nbinom)^2/pi.nbinom)
+
+# SBC
+my.dnbinom <- function(x,r,beta,log=FALSE){
+  result <- numeric()
+  for(j in 1:length(x)){
+    result[j] <- (gamma(r+x[j])*beta^x[j])/(gamma(r)*factorial(x[j])*(1+beta)^(r+x[j]))
+    result[j] <- ifelse(log,log(result[j]),result[j])
+  }
+  result
+}
+sbc.nbinom <- sum(my.dnbinom(claims,r_nbinom,beta_nbinom, log = TRUE)) - .5 * 2 * log(n)
+
+########################################################################
+##########                       Summary                     
+########################################################################
+
+table3 <- cbind("KS"=c(round(ks.pois,3),round(ks.geom,3),round(ks.nbinom,3)), 
+                          "Chi-Sqr"=c(round(chi.pois,2),round(chi.geom,2),round(chi.nbinom,2)), 
+                          "SBC"=c(round(sbc.pois,2),round(sbc.geom,2),round(sbc.nbinom,2)))
+rownames(table3) <- c("Poisson","Geometric","N. Binomial")
+pander::pander(table3)
+```
+
+
+####Tests for Losses
+
+```{r Losses_tests_code, echo=T, results='hide', fig.show = 'hide'}
+########################################################################
+##########                       Gamma                     
+########################################################################
+
+# KS Test
+Fn.minus <- cumsum(c(0,table(losses)/1000))[-length(table(losses))]
+Fn.plus <- cumsum(table(losses)/1000)
+Fx.gamma <- pgamma(as.numeric(names(table(losses))),alpha_gamma,1/theta_gamma)
+ks.gamma <- max(abs(Fx.gamma-Fn.minus),abs(Fx.gamma-Fn.plus))
+
+# Chi-Sqr Test
+n <- length(losses)
+pni <- c(mean(losses <= 75), mean(losses > 75 & losses <= 150),
+         mean(losses > 150 & losses <= 225),mean(losses > 225))
+pi.gamma <- pgamma(c(75,150,225,2000), alpha_gamma,1/theta_gamma) -
+               pgamma(c(0,75,150,225), alpha_gamma,1/theta_gamma)
+
+# SBC
+chi.gamma <- sum(n*(pni-pi.gamma)^2/pi.gamma)
+sbc.gamma <- sum(dgamma(losses, alpha_gamma, 1/theta_gamma, log = TRUE)) - 
+      .5 * 2 * log(n)
+
+
+########################################################################
+##########                      Lognormal                    
+########################################################################
+
+# KS Test
+Fx.lnorm <- plnorm(as.numeric(names(table(losses))),mu,sigma)
+ks.lnorm <- max(abs(Fx.lnorm-Fn.minus),abs(Fx.lnorm-Fn.plus))
+
+# Chi-Sqr Test
+pi.lnorm <- plnorm(c(75,150,225,2000), mu,sigma) -
+               plnorm(c(0,75,150,225), mu,sigma)
+chi.lnorm <- sum(n*(pni-pi.lnorm)^2/pi.lnorm)
+
+# SBC
+sbc.lnorm <- sum(dlnorm(losses, mu, sigma, log = TRUE)) - .5 * 2 * log(n)
+
+########################################################################
+##########                        Pareto                     
+########################################################################
+
+# KS Test
+my.ppareto <- function(x,alpha,theta){
+  result <- numeric()
+  for(i in 1:length(x)){
+    result[i] <- 1-(theta/(x[i]+theta))^alpha 
+  }
+  result
+}
+
+Fx.par <- my.ppareto(as.numeric(names(table(losses))),alpha_par,theta_par)
+ks.par <- max(abs(Fx.par-Fn.minus),abs(Fx.par-Fn.plus))
+
+# Chi-Sqr Test
+pi.par <- my.ppareto(c(75,150,225,2000), alpha_par,theta_par) -
+               my.ppareto(c(0,75,150,225), alpha_par,theta_par)
+chi.par <- sum(n*(pni-pi.par)^2/pi.par)
+
+# SBC
+my.dpareto <- function(x,alpha,theta,log = FALSE){
+  result <- numeric()
+  for(i in 1:length(x)){
+    result[i] <- (alpha*(theta^alpha))/((x[i]+theta)^(alpha+1))
+    result[i] <- ifelse(log,log(result[i]),result[i])
+  }
+  result
+}
+sbc.par <- sum(my.dpareto(losses, alpha_par, theta_par, log = TRUE)) - .5 * 2 * log(n)
+
+########################################################################
+##########                       Summary                    
+########################################################################
+
+table4 <- cbind("KS"=c(round(ks.gamma,3),round(ks.lnorm,3),round(ks.par,3)), 
+                          "Chi-Sqr"=c(round(chi.gamma,2),round(chi.lnorm,2),round(chi.par,2)), 
+                          "SBC"=c(round(sbc.gamma,2),round(sbc.lnorm,2),round(sbc.par,2)))
+rownames(table4) <- c("Gamma","Lognormal","Pareto")
+pander::pander(table4)
+```
+
+
+####MC Aggregate Loss Estimation
+
+```{r AL_Est_code, echo=T, results='hide', fig.show = 'hide'}
+samp.of <- function(x) sum(rlnorm(rnbinom(1,r_nbinom,1/(1+beta_nbinom)),mu,sigma))
+y <- sapply(1:10000, samp.of)
+AL.mean <- mean(y)
+AL.Var <- var(y)
+```
+
+
+####Plots
+
+```{r Plots_code, echo=T, results='hide', fig.show = 'hide'}
+# Initial Look at Claims
+hist(claims, freq = FALSE, main = "Figure 1: Distribution of Claims", xlab = "# of Claims")
+lines(0:10, table(claims)/250, type = 'h', col = 2, lwd = 5)
+
+# Initial Look at Losses
+hist(losses, freq = FALSE, main = "Figure 2: Distribution of Losses", 
+     xlab = "Losses", ylim = c(0,.005))
+lines(density(losses), col = 2)
+
+# Plots for Claims
+plot(0:10+.04,my.dgeom(0:10,beta_geom), type = 'h', col = "blue", xlab = "Claims", 
+     ylab = expression(f(Claims)), main = "Figure 3: Approximated PMFs for Claims", lwd = 3)
+lines(0:10-.12,table(claims)/250,type = 'h', lwd = 5)
+lines(0:10-.04,dpois(0:10,lambda),type = 'h', col = 2, lwd = 3)
+lines(0:10+.12,my.dnbinom(0:10,r_nbinom,beta_nbinom), type = 'h', col = "darkgreen", lwd = 3)
+legend(legend = c("Observed", "Poisson", "Geometric", "N. Binomial"), x = 5, y = .25,
+       col = c("black", "red", "blue", "darkgreen"), lwd = c(5,3,3,3))
+
+# Plots for Losses
+curve(my.dpareto(x,alpha_par,theta_par), xlim = c(0,1000), col = "darkgreen", lwd = 1,
+      main = "Figure 4: Approximated PDFs for Losses", 
+      xlab = "Losses", ylab = expression(f(Losses)))
+lines(density(losses), lwd = 3)
+curve(dgamma(x,alpha_gamma,1/theta_gamma), add = TRUE, col = 2, lwd = 1)
+curve(dlnorm(x,mu,sigma), add = TRUE, col = "blue", lwd = 1)
+legend(legend = c("Observed", "Gamma", "Lognormal", "Pareto"), x = 500, y = .006,
+       col = c("black", "red", "blue", "darkgreen"), lwd = c(3,1,1,1))
+```

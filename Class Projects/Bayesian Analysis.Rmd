@@ -1,0 +1,578 @@
+---
+title: "Stat 251 Final Project"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+subtitle: "Cason Wight"
+output:
+ word_document:
+   reference_docx: MyTemplate.docx
+bibliography: bibfile.bib
+---
+
+
+```{r knitr_init, echo=FALSE, cache=FALSE, warning = FALSE}
+
+library(knitr)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+##Introduction and Motivation
+
+This project looks at the 2015 probability of a police shooting victim being male. It specifically looks at these proportions in Texas and California and the difference in the probability between Texan victims and Californian victims. It is known that males commit a disproportionate amount of crime, but I wish to know if police shootings happen disproportionately to men. 
+
+This report is organized as follows:  
+1.  Literature Review  
+2.  Methods  
+3.  Results  
+4.  Discussion  
+5.  Appendix  
+
+The results of this report, coupled with other demographic information, may explain if trends of bias or crime happen disproportionately among men. Although this report does not make any conclusions on bias or other underlying trends, it can help people in California and Texas know the proportion of shooting victims that are male. It can also explain any possible difference in this proportion between the two states.
+
+
+##Literature Review
+
+Gender disparity and discrimination of criminals from police officers is a topic that has been widely discussed by the public. Police shooting have also come under public scrutiny in recent years.  
+Some studies have shown that male officers are more likely to be involved in shootings than female officers [see @mcelvain2008police]. 
+@worrall2018exploring suggest that black suspects are not the disproportionate targets of officers. @alpert2004interactive found that officers are more likely to shoot proportional to the level of resistance that a suspect shows and that Hispanic officers are less likely to shoot. According to @white2002identifying, the single best predictor for a whether a shooting will occur or not is if the suspect is a gun-wielding man. White also found that somewhere around 95%-99% of police shooting victims are male. The literature on this topic is extensive, but this report will help show a specific comparison between two specific states. This report will analyze any significant difference between California and Texas in terms of male victim police shooting proportions, if one exists. 
+
+
+######
+
+##Methods
+
+This section deals mainly with justifying the distributions of choice, selecting priors for the distribution, and summarizing the different prior distributions.
+
+The methods section contains the following elements:  
+1.  Explanation of data  
+2.  Justification of likelihood distribution  
+3.  Selection of priors  
+4.  Prior distributions on the desired probability  
+5.  Prior predictive distributions for number of males out of 20 new police   shooting victims  
+6.  Prior distribution on the difference between the probabilities between the two states  
+7.  Plots summarizing the prior distributions    
+
+###Explanation of the Data
+
+The data from this project can be found at https://www.kaggle.com/fivethirtyeight/fivethirtyeight-police-killings-dataset/version/103. The data is organized as a single observation binomial response. The observational unit in this case is a "State" (California or Texas). The response is  the number of victims that are male, out of the total victims. I desire to know the posterior distribution of the probability of being male, among other things.
+
+The data was originally obtained from theguardian.com, with some additional information added. Police shooting victim information is made publicly available, which is how the data was obtained by theguardian.com. 
+
+The prior and posterior predictive distributions are calculated for binomially distributed data for both states, given 20 new victims. The estimated difference between the probabilities of the two states is calculated using Monte Carlo estimation.
+
+###Justification of Likelihood Distribution
+
+The data from kaggle is organized with each victim having his or her own row. Each row represents a victim of a police shooting. Two interesting covariates that Kaggle includes are the gender (male or female) and the State (Alabama, Alaska, etc) of each victim. We are given a set number of victims; the number of male victims in a given state is a random variable. This means that the number of male victims could follow a $Bin(n,\theta)$, where $n$ is the total number of victims and $\theta$ is the probability that any given victim is male. The data was reorganized so that State-level victim data (male or female) was obtained for 2015.
+
+A binomial distribution is suitable for this data because the response for each victim is binary (male or female). Additionally, the total number of victims in each State works as a cap on how many male victims there were in that State. The binomial distribution also assumes that there is equal probability of being male for any given victim. This assumption may not hold in reality, but we will make this assumption in the report.
+
+A good distribution for $\theta$ is a $Beta(a,b)$. The beta distribution has a support of $[0,1]$, which matches the requirement for a probability. The beta is an intuitive and interpretable distribution for a probability. Also, the beta is a conjugate pair with the binomial, so the posterior could be easily updated with future years of information. The prior and posterior distribution for $\theta$ will both be a beta, which is convenient for inference.
+
+###Selection of Priors
+
+According to unodc.org, around 80% of homicide victims are male. That information, coupled with the fact that most violent criminals are male, makes me think that most police shooting victims will be male. Additionally, the literature review validates that somewhere above 90% of police shooting victims are male. I am not too sure on a specific probability, so my prior for $\theta$ is that $\theta\sim Beta(10,1)$ for *both* Texans and Californians. The intuitive explanation of these parameters is that this is the equivalent of having seen 1 female and 10 males out of 11 total victims in the past.
+
+###Prior Distributions
+
+* Distributions of $\theta$
+* Predictive distributions for $Y\sim Bin(20,\theta)$
+* Distribution of $\theta|TX-\theta|CA$
+* Plots
+* Prior distribution on the difference between the probabilities between the two states
+
+####Distributions of Probability
+$$\theta_{CA}\sim Beta(10,1)$$
+$$\theta_{TX}\sim Beta(10,1)$$
+$$\pi(\theta|TX)=\pi(\theta|CA)=\frac{\Gamma(a+b)}{\Gamma(a)\Gamma(b)}\theta^{a-1}(1-\theta)^{b-1}=\frac{\Gamma(11)}{\Gamma(10)\Gamma(1)}\theta^9(1-\theta)^0=10\theta^9$$
+
+See figures 1 and 2 in the plots section for the plots of $\pi(\theta|TX)$ and $\pi(\theta|CA)$. Because the prior selections are the same for each state, the prior distributions for $\theta$ are the same.
+
+####Prior Predictives
+$$f(y_{new}|TX)=f(y_{new}|CA)=\int_{0}^{1}f(y_{new}|\theta)\pi(\theta)d\theta$$
+$$={n_{new}\choose y_{new}}\frac{\Gamma(a+b)\Gamma(a+y_{new})\Gamma(b+(n_{new}-y_{new}))}{\Gamma(a)\Gamma(b)\Gamma(a+b+n_{new})}$$
+$$={20\choose y_{new}}\frac{\Gamma(10+1)\Gamma(10+y_{new})\Gamma(1+(20-y_{new}))}{\Gamma(10)\Gamma(1)\Gamma(10+1+20)}$$
+$$={20\choose y_{new}}\frac{\Gamma(11)\Gamma(10+y_{new})\Gamma(1+(20-y_{new}))}{\Gamma(10)\Gamma(1)\Gamma(31)}$$
+See figures 3 and 4 in the plots section for the plots of $f(y_{new}|TX)$ and $f(y_{new}|TX)$. The prior predictive distributions for the two states are the same because the prior selections are the same.
+
+
+####Difference in Probabilities
+The prior distribution of the difference $\theta_{CA}-\theta_{TX}$ doesn't have an analytical solution. See figure 5 in the plots section for a plot of the Monte Carlo estimated distribution of the difference.
+
+####Plots
+
+The above described plots are depicted in this section. The posterior distributions will help us better understand any difference in probability of a victim being male between Texans and Californians.
+
+```{r, fig.height=5, fig.width=10}
+par(mfrow = c(1,2))
+curve(dbeta(x,10,1), main = expression(paste("Figure 1: Prior for ",theta[TX])), 
+      xlab = expression(theta[TX]),ylab = expression(pi(theta[TX])))
+curve(dbeta(x,10,1), main = expression(paste("Figure 2: Prior for ",theta[CA])), 
+      xlab = expression(theta[CA]),ylab = expression(pi(theta[CA])))
+
+
+pred.dist <- function(yobs=0, nobs=0, a, b, ynew, nnew, type = 0){
+  
+  astar <- yobs + a
+  bstar <- nobs-yobs+b
+  
+  l.pos.pred <- lgamma(astar + bstar)-lgamma(astar) -
+    lgamma(bstar) + lchoose(nnew,ynew) +
+    lgamma(astar + ynew) + lgamma(bstar + nnew - ynew) - 
+    lgamma(astar + bstar + nnew)
+  
+  l.prior.pred <- lgamma(a + b)-lgamma(a) -
+    lgamma(b) + lchoose(nnew,ynew) +
+    lgamma(a + ynew) + lgamma(b + nnew - ynew) - 
+    lgamma(a + b + nnew)
+  
+  if(type == "Post"){
+    out <- exp(l.pos.pred)
+  } else if (type == "Prior") {
+    out <- exp(l.prior.pred)
+  } else{  
+    out <- cbind(exp(l.pos.pred),exp(l.prior.pred))
+    colnames(out) <- c("Posterior Prediction", "Prior Prediction")
+    rownames(out) <- ynew
+  }
+  out
+}
+```
+
+```{r, fig.height=5, fig.width=10}
+par(mfrow = c(1,2))
+plot(0:20,pred.dist(a = 10, b = 1, ynew = 0:20, nnew = 20, type = "Prior"),type = "h", 
+     main = "Figure 3: Prior Predictive (TX)",
+     ylab = expression(f(y[new])),xlab = expression(y[new]))
+plot(0:20,pred.dist(a = 10, b = 1, ynew = 0:20, nnew = 20, type = "Prior"),type = "h", 
+     main = "Figure 4: Prior Predictive (CA)",
+     ylab = expression(f(y[new])),xlab = expression(y[new]))
+
+
+dats <- read.csv("police_killings.csv", header = TRUE)
+TX.dats <- dats[dats[,10]=="TX",c(3,10)]
+CA.dats <- dats[dats[,10]=="CA",c(3,10)]
+
+TX.males <- sum(TX.dats[,1]=="Male")
+TX.deaths <- nrow(TX.dats)
+
+CA.males <- sum(CA.dats[,1]=="Male")
+CA.deaths <- nrow(CA.dats)
+```
+
+```{r, fig.height=5, fig.width=10}
+par(mfrow = c(1,1))
+plot(density(rbeta(1000000,10,1)-rbeta(1000000,10,1)), 
+     main = "Figure 5: Prior Difference in Probabilities", xlab = expression(theta[TX]-theta[CA]), ylab = expression(pi(theta[TX]-theta[CA])))
+
+```
+
+
+The priors are not particularly helpful in this case. The posterior distribution ($\pi(\theta_{TX}-\theta_{CA}|Y_{TX},Y_{CA})$) will be more helpful for us see if there is any statistically significant difference between the probabilities of victims being male between the two States. The next section will go over how to obtain the posterior distribution, and any inferences that can be drawn from it (posterior credibility intervals for $\theta_{TX}$, $\theta_{CA}$, and $\theta_{TX}-\theta_{CA}$; estimates for the three; and a statistical conclusion on if a significant difference exists).
+
+######
+
+##Results
+
+This section contains an overview of the data, posterior inference, and associated plots. The content of this section is organized as follows:  
+1.  Summary statistics for the data  
+2.  Posterior distributions on the desired probability  
+3.  Posterior predictive distributions for number of males out of 20 new police shooting victims  
+4.  Posterior distribution on the difference between the probabilities between the two states  
+5.  Plots summarizing the posterior distributions  
+
+###Summary Statistics
+
+Table 1 below summarizes the number of male and female victims in each state. As shown, very few of the victims are female, which matches with the idea behind the selected priors. Out of 467 total police shooting victims in 2015, only 22 were females (`r round(100*22/467,2)`%). 
+
+
+Table 1: Police Shooting Victims by State 
+```{r}
+names(dats)[c(3,10)] <- c("Gender","State")
+tab1 <- addmargins(table(dats[,c(3,10)]))
+rownames(tab1)[3] <- "Total"
+colnames(tab1)[ncol(tab1)] <- "Total"
+
+
+pander::pander(tab1[,1:12])
+pander::pander(tab1[,13:24])
+pander::pander(tab1[,25:36])
+pander::pander(tab1[,37:48])
+```
+
+The estimated mean number of police shooting victims in a state is `r round(mean(tab1[3,1:(ncol(tab1)-1)]),2)` (95% CI: `r round((mean(tab1[3,1:(ncol(tab1)-1)])+qt(c(.025,.975), ncol(tab1)-2)*sqrt(var(tab1[3,1:(ncol(tab1)-1)]))/sqrt(ncol(tab1)-1))[1],2)` to `r round((mean(tab1[3,1:(ncol(tab1)-1)])+qt(c(.025,.975), ncol(tab1)-2)*sqrt(var(tab1[3,1:(ncol(tab1)-1)]))/sqrt(ncol(tab1)-1))[2],2)`). The estimated mean number of male police shooting victims in a state is `r round(mean(tab1[2,1:(ncol(tab1)-1)]),2)` (95% CI: `r round((mean(tab1[2,1:(ncol(tab1)-1)])+qt(c(.025,.975), ncol(tab1)-2)*sqrt(var(tab1[2,1:(ncol(tab1)-1)]))/sqrt(ncol(tab1)-1))[1],2)` to `r round((mean(tab1[2,1:(ncol(tab1)-1)])+qt(c(.025,.975), ncol(tab1)-2)*sqrt(var(tab1[2,1:(ncol(tab1)-1)]))/sqrt(ncol(tab1)-1))[2],2)`). The estimated mean number of female police shooting victims in a state is `r round(mean(tab1[1,1:(ncol(tab1)-1)]),2)` (95% CI: `r round((mean(tab1[1,1:(ncol(tab1)-1)])+qt(c(.025,.975), ncol(tab1)-2)*sqrt(var(tab1[1,1:(ncol(tab1)-1)]))/sqrt(ncol(tab1)-1))[1],2)` to `r round((mean(tab1[1,1:(ncol(tab1)-1)])+qt(c(.025,.975), ncol(tab1)-2)*sqrt(var(tab1[1,1:(ncol(tab1)-1)]))/sqrt(ncol(tab1)-1))[2],2)`). The two states with the most total victims are Texas and California (46 and 74 total victims, respectively). For this reason, and the large cultural difference between Texas and California, we are taking particular interest in inference for these two states. The most shootings occur in these politically and geographically differing States, so it may be useful to see if there is any trend between the two in terms of the gender of police shooting victims.
+
+
+###Posterior
+
+* Distributions of $\theta$
+* Predictive distributions for $Y\sim Bin(20,\theta)$
+* Distribution of $\theta|TX-\theta|CA$
+* Plots
+
+####Distributions of Probability
+$$\theta_{TX}|Y_{TX}\sim Beta(10+y_{TX},1+n_{TX}-y_{TX})$$
+$$\theta_{TX}|Y_{TX}\sim Beta(10 + `r TX.males`,1+`r TX.deaths`-`r TX.males`)$$
+$$\theta_{TX}|Y_{TX}\sim Beta(`r 10 + TX.males`,`r 1 + TX.deaths - TX.males`)$$
+```{r}
+mean.tx <- (10 + TX.males)/(1 + TX.deaths - TX.males + 10 + TX.males)
+ci.tx <- qbeta(c(.025,.975), 10 + TX.males,1 + TX.deaths - TX.males)
+```
+
+$$E(\theta_{TX}|Y_{TX})=\frac{a}{a+b}=\frac{`r 10 + TX.males`}{`r 10 + TX.males`+`r 1 + TX.deaths - TX.males`}\approx`r round(mean.tx,2)`$$
+
+The posterior estimate of the true proportion of Texan police shooting victims who are male is `r round(mean.tx,2)`. With 95% probability, the true proportion of Texan police shooting victims who are male lies within the interval `r round(ci.tx[1],2)` to `r round(ci.tx[2],2)`. See figure 6 in the plots section for a plot of the prior and posterior of $\theta_{TX}$, along with the 95% credibility interval and the mean.
+
+$$\theta_{CA}|Y_{CA}\sim Beta(10+y_{CA},1+n_{CA}-y_{CA})$$
+$$\theta_{CA}|Y_{CA}\sim Beta(10+`r CA.males`,1+`r CA.deaths`-`r CA.males`)$$
+$$\theta_{CA}|Y_{CA}\sim Beta(`r 10 + CA.males`,`r 1 + CA.deaths - CA.males`)$$
+
+```{r}
+mean.ca <- (10 + CA.males)/(1 + CA.deaths - CA.males + 10 + CA.males)
+ci.ca <- qbeta(c(.025,.975), 10 + CA.males,1 + CA.deaths - CA.males)
+```
+
+$$E(\theta_{CA}|Y_{CA})=\frac{a}{a+b}=\frac{`r 10 + CA.males`}{`r 10 + CA.males`+`r 1 + CA.deaths - CA.males`}\approx`r round(mean.ca,2)`$$
+
+The posterior estimate of the true proportion of Californian police shooting victims who are male is `r round(mean.ca,2)`. With 95% probability, the true proportion of Californian police shooting victims who are male lies within the interval `r round(ci.ca[1],2)` to `r round(ci.ca[2],2)`. See figure 7 in the plots section for a plot of the prior and posterior of $\theta_{CA}$, along with the 95% credibility interval and the mean.  
+
+See figure 8 in the plots section for a plot of the distributions of $\theta_{TX}|Y_{TX}$ and $\theta_{CA}|Y_{CA}$ together.
+
+
+$$\pi(\theta|Y_{CA})=\frac{\Gamma(a^\star+b^\star)}{\Gamma(a^\star)\Gamma(b^\star)}\theta^{a^\star-1}(1-\theta)^{b^\star-1}=\frac{\Gamma(`r 10 + CA.males`+`r 1 + CA.deaths - CA.males`)}{\Gamma(`r 10 + CA.males`)\Gamma(`r 1 + CA.deaths - CA.males`)}\theta^{`r 10 + CA.males`-1}(1-\theta)^{`r 1 + CA.deaths - CA.males`-1}$$
+$$=\frac{\Gamma(`r 10 + CA.males + 1 + CA.deaths - CA.males`)}{\Gamma(`r 10 + CA.males`)\Gamma(`r 1 + CA.deaths - CA.males`)}\theta^{`r 10 + CA.males-1`}(1-\theta)^{`r 1 + CA.deaths - CA.males-1`}$$
+$$\pi(\theta|Y_{TX})=\frac{\Gamma(a^\star+b^\star)}{\Gamma(a^\star)\Gamma(b^\star)}\theta^{a^\star-1}(1-\theta)^{b^\star-1}=\frac{\Gamma(`r 10 + TX.males`+`r 1 + TX.deaths - TX.males`)}{\Gamma(`r 10 + TX.males`)\Gamma(`r 1 + TX.deaths - TX.males`)}\theta^{`r 10 + TX.males`-1}(1-\theta)^{`r 1 + TX.deaths - TX.males`-1}$$
+$$=\frac{\Gamma(`r 10 + TX.males + 1 + TX.deaths - TX.males`)}{\Gamma(`r 10 + TX.males`)\Gamma(`r 1 + TX.deaths - TX.males`)}\theta^{`r 10 + TX.males-1`}(1-\theta)^{`r 1 + TX.deaths - TX.males-1`}$$
+
+
+
+
+####Posterior Predictives
+$$f(y_{new}|y_{TX})=\int_{0}^{1}f(y_{new}|\theta)\pi(\theta|y_{TX})d\theta$$
+$$={n_{new}\choose y_{new}}\frac{\Gamma(a^\star+b^\star)\Gamma(a^\star+y_{new})\Gamma(b^\star+n_{new}-y_{new})}{\Gamma(a^\star)\Gamma(b^\star)\Gamma(a^\star+b^\star+n_{new})}$$
+$$={20\choose y_{new}}\frac{\Gamma(`r 10 + TX.males`+`r 1 + TX.deaths - TX.males`)\Gamma(`r 10 + TX.males`+y_{new})\Gamma(`r 1 + TX.deaths - TX.males`+20-y_{new})}{\Gamma(`r 10 + TX.males`)\Gamma(`r 1 + TX.deaths - TX.males`)\Gamma(`r 10 + TX.males`+`r 1 + TX.deaths - TX.males`+20)}$$
+$$={20\choose y_{new}}\frac{\Gamma(`r 10 + TX.males + 1 + TX.deaths - TX.males`)\Gamma(`r 10 + TX.males`+y_{new})\Gamma(`r 1 + TX.deaths - TX.males+20`-y_{new})}{\Gamma(`r 10 + TX.males`)\Gamma(`r 1 + TX.deaths - TX.males`)\Gamma(`r 10 + TX.males + 1 + TX.deaths - TX.males+20`)}$$
+
+
+$$f(y_{new}|y_{CA})=\int_{0}^{1}f(y_{new}|\theta)\pi(\theta|y_{CA})d\theta$$
+$$={n_{new}\choose y_{new}}\frac{\Gamma(a^\star+b^\star)\Gamma(a^\star+y_{new})\Gamma(b^\star+n_{new}-y_{new})}{\Gamma(a^\star)\Gamma(b^\star)\Gamma(a^\star+b^\star+n_{new})}$$
+$$={20\choose y_{new}}\frac{\Gamma(`r 10 + CA.males`+`r 1 + CA.deaths - CA.males`)\Gamma(`r 10 + CA.males`+y_{new})\Gamma(`r 1 + CA.deaths - CA.males`+20-y_{new})}{\Gamma(`r 10 + CA.males`)\Gamma(`r 1 + CA.deaths - CA.males`)\Gamma(`r 10 + CA.males`+`r 1 + CA.deaths - CA.males`+20)}$$
+$$={20\choose y_{new}}\frac{\Gamma(`r 10 + CA.males + 1 + CA.deaths - CA.males`)\Gamma(`r 10 + CA.males`+y_{new})\Gamma(`r 1 + CA.deaths - CA.males+20`-y_{new})}{\Gamma(`r 10 + CA.males`)\Gamma(`r 1 + CA.deaths - CA.males`)\Gamma(`r 10 + CA.males + 1 + CA.deaths - CA.males+20`)}$$
+
+See figure 9 in the plots section for a plot of the posterior predictive distributions for 20 new victims from both either Texas or California.
+
+
+####Difference in Probabilities
+```{r}
+sampled.diff <- rbeta(1000000,10+TX.males,1+TX.deaths-TX.males)-   
+      rbeta(1000000,10+CA.males,1+CA.deaths-CA.males)   
+   
+   
+mean.diff <- mean(sampled.diff)   
+ci.diff <- quantile(sampled.diff, c(.025,.975))  
+```
+$$\theta_{CA}-\theta_{TX}|Y_{CA},Y_{TX}$$
+
+The difference in probabilities $\theta_{CA}-\theta_{TX}|Y_{CA},Y_{TX}$ doesn't have an analytical solution. See figure 10 in the plots section below for a Monte Carlo estimate of the distribution, along with the 95% credibility interval and the estimated mean.
+
+The posterior estimate of the true difference in proportions of police shooting victims who are male between Texans and Californians is `r round(mean.diff,2)`. With 95% probability, the true difference in proportions of police shooting victims who are male between Texans and Californians lies within the interval `r round(ci.diff[1],2)` to `r round(ci.diff[2],2)`. Because this interval contains 0, we can say that there is not sufficient evidence to say there is a difference between these two proportions. 
+
+
+####Plots
+
+```{r fig.height=4, fig.width=10}
+par(mfrow = c(1,2))
+curve(dbeta(x,10+TX.males,1+TX.deaths-TX.males), 
+      main = expression(paste("Figure 6: Distribution of ",theta[TX])), lwd = 2,
+      xlab = expression(theta),ylab = expression(pi(theta)), xlim = c(.5,1))
+curve(dbeta(x,10,1),add = TRUE, col = "grey", lty = "dashed", lwd = 2)
+abline(v = mean.tx, lty = "dashed", col = 2, lwd = 2)
+abline(v = ci.tx, lty = "dashed", col = "orange")
+legend(legend = c(expression(paste(theta[TX],"|",Y[TX])),expression(theta[TX]), "Mean of Posterior", "95% CI of Posterior"), 
+       col = c("black","grey", "red", "orange"),lty = c("solid","dashed"), x = .5, y = 15, lwd = c(rep(2,3),1))
+
+curve(dbeta(x,10+CA.males,1+CA.deaths-CA.males), 
+      main = expression(paste("Figure 7: Distribution of ",theta[CA])), 
+      xlab = expression(theta),ylab = expression(pi(theta)), xlim = c(.5,1), lwd = 2)
+curve(dbeta(x,10,1),add = TRUE, col = "grey", lty = "dashed", lwd = 2)
+abline(v = mean.ca, lty = "dashed", col = 2, lwd = 2)
+abline(v = ci.ca, lty = "dashed", col = "orange")
+legend(legend = c(expression(paste(theta[CA],"|",Y[CA])),expression(theta[CA]), "Mean of Posterior", "95% CI of Posterior"), 
+       col = c("black","grey", "red", "orange"),lty = c("solid",rep("dashed",3)), x = .5, y = 15, lwd = c(rep(2,3),1))
+```
+
+```{r fig.height=4, fig.width=10}
+par(mfrow = c(1,2))
+
+curve(dbeta(x,10+TX.males,1+TX.deaths-TX.males), 
+      main = expression(paste("Figure 8: Distribution of ",theta,"|",Y)), 
+      lwd = 2,
+      xlab = expression(paste(theta,"|",Y)),ylab = expression(paste(pi,"(",theta,"|",Y,")")), xlim = c(0,1))
+curve(dbeta(x,10+CA.males,1+CA.deaths-CA.males), add = TRUE, col = 2, lwd = 2)
+legend(legend = c(expression(paste(theta[TX],"|",Y[TX])),expression(paste(theta[CA],"|",Y[CA]))), 
+       col = c("black","red"),lty = "solid", x = 0, y = 15)
+
+plot(0:20,pred.dist(yobs = TX.males,nobs = TX.deaths, a = 10, b = 1, ynew = 0:20, nnew = 20, type = "Prior"),type = "h", 
+     main = "Figure 9: Post. Pred. Distribution for 20 Victims",
+     ylab = expression(paste(f,"(",y[new],"|",y[obs],")")),xlab = expression(paste(y[new],"|",y[obs])))
+lines(0:20+.1,pred.dist(yobs = CA.males,nobs = CA.deaths, a = 10, b = 1, ynew = 0:20, nnew = 20, type = "Prior"),type = "h", 
+     col = 2)
+legend(legend = c("Texas", "California"), col = 1:2,lty = "solid", x = 0, y = .3)
+```
+
+```{r fig.height=4, fig.width=10}
+par(mfrow=c(1,1))
+plot(density(sampled.diff), xlim = c(-.3,.3), 
+     main = expression(paste("Figure 10: Distribution of ",theta[TX]-theta[CA],"|",Y[TX],",",Y[CA])),
+     xlab = expression(paste(theta[TX]-theta[CA],"|",Y[TX],",",Y[CA])),
+     ylab = expression(paste(pi,"(",theta[TX]-theta[CA],"|",Y[TX],",",Y[CA],")")), lwd = 2)
+abline(v = mean.diff, lty = "dashed", col = 2, lwd = 2)
+abline(v = ci.diff, lty = "dashed", col = "orange")
+legend(legend=c(expression(paste(pi,"(",theta[TX]-theta[CA],"|",Y[TX],",",Y[CA],")")),
+                expression(paste("Mean of ",theta[TX]-theta[CA],"|",Y[TX],",",Y[CA])),
+                expression(paste("95% Credibility Interval of ",theta[TX]-theta[CA],"|",Y[TX],",",Y[CA]))),
+       col = c("black", "red", "orange"), lwd = c(2,2,1), lty = c("solid",rep("dashed",2)), x = -.3, y = 10)
+```
+
+
+
+
+######
+
+##Discussion
+
+The discussion contains the following:  
+1.  Summary of the results  
+2.  Shortcomings of the report  
+3.  Possible future work  
+
+###Summary of Results
+
+The results of this report are not too surprising. In fact, they line up similarly to what the priors predicted. For example, the posterior estimate of the true difference in proportions of police shooting victims who are male between Texans and Californians is `r round(mean.diff,2)` (95% credibility interval: `r round(ci.diff[1],2)` to `r round(ci.diff[2],2)`) and the prior predicted no difference. The credibility interval contains 0, which means that there is no statistically significant difference between the two proportions. This can give an initial conclusion to Texans and Californians given a police shooting victim in either state, the probability of being male is about the same (or there is no evidence to the contrary).   
+  
+For both Texas and California, the prior estimated proportion of men was $\approx`r round(10/11,2)`$. The posterior estimates of the proportions of men for Texas and California were $\approx`r round(mean.tx,2)`$ and $\approx`r round(mean.ca,2)`$, respectively. Thus, the posterior distributions are not too different from the prior estimates. 
+
+###Shortcomings
+
+An obvious shortcoming of this report is the lack of data. Given only data for 2015, these results are fairly limited. It would also be useful to perform an analysis with covariates in order to make inferences about police bias. Right now, the inferences on these proportions do not have a lot of practical use. A situational look on the different outcomes based on gender, after accounting for other factors, would be a better approach.  
+
+###Future Work
+
+There are a couple possible routes for future work. One method is to perform this same analysis, updating it with new results for Texas and California each year. Looking back to previous years before 2015 would also enhance the results.  
+  
+Another avenue is to look at a logistic regression model and see the effect of a victim being male or of being from a particular State, after accounting for various other covariates. This method may answer other questions of interest regarding bias or other trends with gender. @o2004bayesian outline a Bayesian approach to logistic regression, which would be useful in this setting.
+
+
+#####Conclusion
+
+While the results of this project may not be particularly exciting, they could help people understand that roughly the same proportion of shooting victims are male, whether Californian or Texan.
+
+
+######
+
+##Appendix
+
+###R Code
+
+####Function for Predictive Distributions
+
+```{r echo=T, results='hide'}
+pred.dist <- function(yobs=0, nobs=0, a, b, ynew, nnew, type = 0){
+  
+  astar <- yobs + a
+  bstar <- nobs-yobs+b
+  
+  l.pos.pred <- lgamma(astar + bstar)-lgamma(astar) -
+    lgamma(bstar) + lchoose(nnew,ynew) +
+    lgamma(astar + ynew) + lgamma(bstar + nnew - ynew) - 
+    lgamma(astar + bstar + nnew)
+  
+  l.prior.pred <- lgamma(a + b)-lgamma(a) -
+    lgamma(b) + lchoose(nnew,ynew) +
+    lgamma(a + ynew) + lgamma(b + nnew - ynew) - 
+    lgamma(a + b + nnew)
+  
+  if(type == "Post"){
+    out <- exp(l.pos.pred)
+  } else if (type == "Prior") {
+    out <- exp(l.prior.pred)
+  } else{  
+    out <- cbind(exp(l.pos.pred),exp(l.prior.pred))
+    colnames(out) <- c("Posterior Prediction", "Prior Prediction")
+    rownames(out) <- ynew
+  }
+  out
+}
+```
+
+####Plots of Prior Distributions
+
+```{r echo=T, results='hide', fig.show = 'hide'}
+par(mfrow = c(1,2))
+curve(dbeta(x,10,1), main = expression(paste("Figure 1: Prior for ",theta[TX])),
+      xlab = expression(theta[TX]),ylab = expression(pi(theta[TX])))
+curve(dbeta(x,10,1), main = expression(paste("Figure 2: Prior for ",theta[CA])),
+      xlab = expression(theta[CA]),ylab = expression(pi(theta[CA])))
+```
+
+####Plots of Prior Predictive Distributions
+
+```{r echo=T, results='hide', fig.show = 'hide'}
+plot(0:20,pred.dist(a = 10, b = 1, ynew = 0:20, nnew = 20, type = "Prior"),type = "h", 
+     main = "Figure 3: Prior Predictive (TX)",
+     ylab = expression(f(y[new])),xlab = expression(y[new]))
+plot(0:20,pred.dist(a = 10, b = 1, ynew = 0:20, nnew = 20, type = "Prior"),type = "h", 
+     main = "Figure 4: Prior Predictive (CA)",
+     ylab = expression(f(y[new])),xlab = expression(y[new]))
+```
+
+####Plot of Difference in Proportions Prior Distribution
+
+```{r echo=T, results='hide', fig.show = 'hide'}
+par(mfrow = c(1,1))
+plot(density(rbeta(1000000,10,1)-rbeta(1000000,10,1)), 
+     main = "Figure 5: Prior Difference in Probabilities", 
+     xlab = expression(theta[TX]-theta[CA]), 
+     ylab = expression(pi(theta[TX]-theta[CA])))
+```
+
+####Reading in and Formatting Data
+
+```{r echo=T, results='hide'}
+dats <- read.csv("police_killings.csv", header = TRUE)
+TX.dats <- dats[dats[,10]=="TX",c(3,10)]
+CA.dats <- dats[dats[,10]=="CA",c(3,10)]
+
+TX.males <- sum(TX.dats[,1]=="Male")
+TX.deaths <- nrow(TX.dats)
+
+CA.males <- sum(CA.dats[,1]=="Male")
+CA.deaths <- nrow(CA.dats)
+```
+
+####Summary Statistics on Data
+
+```{r echo=T, results='hide', fig.show = 'hide'}
+names(dats)[c(3,10)] <- c("Gender","State")
+tab1 <- addmargins(table(dats[,c(3,10)]))
+rownames(tab1)[3] <- "Total"
+colnames(tab1)[ncol(tab1)] <- "Total"
+
+pander::pander(tab1[,1:12])
+pander::pander(tab1[,13:24])
+pander::pander(tab1[,25:36])
+pander::pander(tab1[,37:48])
+```
+
+####Posterior Estimates and Confidence Intervals
+
+```{r echo=T, results='hide'}
+# MC Distribution for TX
+mean.tx <- (10 + TX.males)/(1 + TX.deaths - TX.males + 10 + TX.males)
+ci.tx <- qbeta(c(.025,.975), 10 + TX.males,1 + TX.deaths - TX.males)
+
+# MC Distribution for CA
+mean.ca <- (10 + CA.males)/(1 + CA.deaths - CA.males + 10 + CA.males)
+ci.ca <- qbeta(c(.025,.975), 10 + CA.males,1 + CA.deaths - CA.males)
+
+# MC Distribution for the difference
+sampled.diff <- rbeta(1000000,10+TX.males,1+TX.deaths-TX.males)-   
+      rbeta(1000000,10+CA.males,1+CA.deaths-CA.males)   
+mean.diff <- mean(sampled.diff)   
+ci.diff <- quantile(sampled.diff, c(.025,.975)) 
+```
+
+####Plots of Posterior Distributions
+
+```{r echo=T, results='hide', fig.show = 'hide'}
+par(mfrow = c(1,2))
+curve(dbeta(x,10+TX.males,1+TX.deaths-TX.males), 
+      main = expression(paste("Figure 6: Distribution of ",theta[TX])), lwd = 2,
+      xlab = expression(theta),ylab = expression(pi(theta)), xlim = c(.5,1))
+curve(dbeta(x,10,1),add = TRUE, col = "grey", lty = "dashed", lwd = 2)
+abline(v = mean.tx, lty = "dashed", col = 2, lwd = 2)
+abline(v = ci.tx, lty = "dashed", col = "orange")
+legend(legend = c(expression(paste(theta[TX],"|",Y[TX])),
+                  expression(theta[TX]), "Mean of Posterior", 
+                  "95% CI of Posterior"), 
+       col = c("black","grey", "red", "orange"),
+       lty = c("solid","dashed"), x = .5, y = 15, 
+       lwd = c(rep(2,3),1))
+
+curve(dbeta(x,10+CA.males,1+CA.deaths-CA.males), 
+      main = expression(paste("Figure 7: Distribution of ",theta[CA])), 
+      xlab = expression(theta),ylab = expression(pi(theta)), 
+      xlim = c(.5,1), lwd = 2)
+curve(dbeta(x,10,1),add = TRUE, col = "grey", lty = "dashed", lwd = 2)
+abline(v = mean.ca, lty = "dashed", col = 2, lwd = 2)
+abline(v = ci.ca, lty = "dashed", col = "orange")
+legend(legend = c(expression(paste(theta[CA],"|",Y[CA])),
+                  expression(theta[CA]), 
+                  "Mean of Posterior", "95% CI of Posterior"), 
+       col = c("black","grey", "red", "orange"),
+       lty = c("solid",rep("dashed",3)), 
+       x = .5, y = 15, lwd = c(rep(2,3),1))
+```
+
+####Plot of Posterior Distributions on One Graph
+
+```{r echo=T, results='hide', fig.show = 'hide'}
+par(mfrow = c(1,1))
+
+curve(dbeta(x,10+TX.males,1+TX.deaths-TX.males), 
+      main = expression(paste("Figure 8: Distribution of ",theta,"|",Y)), 
+      lwd = 2,
+      xlab = expression(paste(theta,"|",Y)),
+      ylab = expression(paste(pi,"(",theta,"|",Y,")")), xlim = c(0,1))
+curve(dbeta(x,10+CA.males,1+CA.deaths-CA.males), add = TRUE, col = 2, lwd = 2)
+legend(legend = c(expression(paste(theta[TX],"|",Y[TX])),
+                  expression(paste(theta[CA],"|",Y[CA]))), 
+       col = c("black","red"),lty = "solid", x = 0, y = 15)
+```
+
+####Plot of Posterior Predictive Distributions
+```{r echo=T, results='hide', fig.show = 'hide'}
+plot(0:20,pred.dist(yobs = TX.males,nobs = TX.deaths, 
+                    a = 10, b = 1, ynew = 0:20, nnew = 20, 
+                    type = "Prior"),type = "h", 
+     main = "Figure 9: Posterior Predictive Distribution for 20 New Victims",
+     ylab = expression(paste(f,"(",y[new],"|",y[obs],")")),
+     xlab = expression(paste(y[new],"|",y[obs])))
+lines(0:20+.1,pred.dist(yobs = CA.males,nobs = CA.deaths, 
+                        a = 10, b = 1, ynew = 0:20, nnew = 20, 
+                        type = "Prior"),type = "h", col = 2)
+legend(legend = c("Texas", "California"), col = 1:2,
+       lty = "solid", x = 0, y = .3)
+```
+
+####Plot of Difference in Proportions Posterior Distribution
+
+```{r echo=T, results='hide', fig.show = 'hide'}
+plot(density(sampled.diff), xlim = c(-.3,.3), 
+     main = expression(paste("Figure 10: Distribution of ",
+                             theta[TX]-theta[CA],"|",Y[TX],",",Y[CA])),
+     xlab = expression(paste(theta[TX]-theta[CA],"|",Y[TX],",",Y[CA])),
+     ylab = expression(paste(pi,"(",theta[TX]-theta[CA],
+                             "|",Y[TX],",",Y[CA],")")), lwd = 2)
+abline(v = mean.diff, lty = "dashed", col = 2, lwd = 2)
+abline(v = ci.diff, lty = "dashed", col = "orange")
+legend(legend=c(expression(paste(pi,"(",theta[TX]-theta[CA],"|",
+                                 Y[TX],",",Y[CA],")")),
+                expression(paste("Mean of ",
+                                 theta[TX]-theta[CA],"|",Y[TX],",",Y[CA])),
+                expression(paste("95% Credibility Interval of ",
+                                 theta[TX]-theta[CA],"|",Y[TX],",",Y[CA]))),
+       col = c("black", "red", "orange"), lwd = c(2,2,1), 
+       lty = c("solid",rep("dashed",2)), x = -.3, y = 10)
+```
+######
+
+###Works Cited
