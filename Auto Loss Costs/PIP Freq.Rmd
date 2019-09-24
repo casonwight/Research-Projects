@@ -1,0 +1,294 @@
+---
+title: "PIP Frequency Report"
+author: "Cason Wight"
+date: "March 21, 2018"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r, include = FALSE, echo = FALSE}
+knitr::opts_chunk$set(fig.width = 12, fig.height = 6.5)
+
+```
+
+
+
+```{r FormatData, echo = FALSE, message = FALSE, warning = FALSE}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(car)
+set.seed(100)
+
+header <- scan("C:/Users/Cason Wight/Desktop/Hartman Research/New data 2-22-2018.csv", 
+               nlines = 1, sep = ",", skip = 0, what = character())
+header2 <- scan("C:/Users/Cason Wight/Desktop/Hartman Research/New data 2-22-2018.csv", 
+                nlines = 1, sep = ",", skip = 1, what = character())
+auto <- read.csv("C:/Users/Cason Wight/Desktop/Hartman Research/New data 2-22-2018.csv", 
+                 skip = 2, header = FALSE)
+
+colnames(auto) <- paste0(header, ifelse(header=="", "", "_"), header2)
+
+colnames(auto) <- gsub(" ", "_", colnames(auto))
+
+auto$Average_Miles_per_Driver <- as.numeric(gsub("#N/A", NA, auto$Average_Miles_per_Driver))
+auto$`On-Level_Mileage_Adjustment` <- as.numeric(gsub("#N/A", NA, auto$`On-Level_Mileage_Adjustment`))
+auto$`COLL_On-Level_Frequency` <- as.numeric(gsub("#N/A", NA, auto$`COLL_On-Level_Frequency`))
+auto$`Mobile_Broadband_%` <- as.numeric(gsub("#REF!", NA, auto$`Mobile_Broadband_%`))
+auto$`COMP_On-Level_Frequency` <- as.numeric(gsub("#REF!", NA, auto$`COMP_On-Level_Frequency`))
+auto$`PIP_On-Level_Frequency` <- as.numeric(gsub("#N/A", NA, auto$`PIP_On-Level_Frequency`))
+colnames(auto)[1] <- "State"
+auto$State <- as.character(auto$State)
+
+rowsToKeep <- which(auto$`State`%in%c("Florida", "Michigan", "New Jersey", "New York", "Pennsylvania", "Kansas", "Kentucky", "Massachusetts", "Minnesota", "North Dakota", "Utah",  "Delaware", "Maryland", "Oregon", "South Carolina", "Texas", "Washington"))
+
+
+auto <- auto[rowsToKeep,]
+
+moreRowsToCut <- which(is.na(auto$Average_Miles_per_Driver))
+
+auto <- auto[-moreRowsToCut,]
+
+auto <- select(auto, -starts_with("BI_"), -starts_with("PD_"), -starts_with("COMP_"),
+               -starts_with("#REF!"), -starts_with("COLL_"), -starts_with("PIP_On-Level_Frequency"), -starts_with("System"))
+```
+
+
+```{r ImportancePlot, echo = FALSE, message = FALSE, warning = FALSE}
+factors <- select(auto, c(`Average_Miles_per_Driver`:`Drivers_per_Lane_Mile`, `PIP_Frequency`))
+
+library(randomForest)
+
+ImpPlot <- function() {
+  rows.train <- sample(1:nrow(factors), round(nrow(factors)*.8))
+  train <- factors[rows.train,]
+  test <- factors[-rows.train,]
+  out <- randomForest(x = factors[,-ncol(factors)], 
+                      y = factors[,ncol(factors)],
+                      xtest= factors[,-ncol(factors)], 
+                      ytest=factors[,ncol(factors)], 
+                         replace=TRUE, 
+                         keep.forest=TRUE, 
+                         ntree= 100, 
+                         mtry= 9,
+                         nodesize= 15) 
+  
+  imp <- data.frame(importance(out))
+  colnames(imp) <- "Relative_Importance"
+  imp <- cbind(imp, "Variables" = gsub("_", " ", rownames(imp)))
+  imp <- imp[order(imp$Relative_Importance, decreasing = TRUE),]
+  rownames(imp) <- NULL
+  imp$Variables <- as.factor(imp$Variables)
+  
+  impPlot <- ggplot(data = imp, aes(y=Relative_Importance, 
+                                    x = reorder(Variables, Relative_Importance))) +
+    geom_bar(stat = "identity", col = "darkorange1", fill = "darkorange1", width = .35)+
+    coord_flip()+ 
+    theme_classic()+
+    labs(y = "Weak <---------------------------> Strong", x = "", 
+         title = "PIP Frequency Variable Importance")+
+    theme(panel.grid.major.y = element_blank(), panel.grid.major.x = element_line( size=.1, color="lightgrey")) +
+    scale_y_continuous(expand = c(0,0))
+  
+  print(impPlot)
+  return(gsub(" ", "_",imp[1:6, 2]))
+}
+
+variables <- ImpPlot()
+```
+
+
+```{r PrepareModelForPlots, echo = FALSE, message = FALSE, warning = FALSE}
+
+PIPfreq <- auto[which(auto$`Year` > 2011),]
+
+PIPfreq <- aggregate(.~State_Abbreviation+State+Year, data = PIPfreq, mean)
+
+Quintile <- function(mydata) {
+  dataByYear <- list()
+  numbers <- list()
+  newdata <- data.frame()
+  for (i in 2012:2015) {
+    dataByYear[[i-2011]] <- mydata[which(mydata$Year == i),]
+    quintiles <- quantile(dataByYear[[i-2011]]$PIP_Frequency, seq(0,1,.2))
+    dataByYear[[i-2011]]$QUINT <- cut(dataByYear[[i-2011]]$PIP_Frequency,quintiles)
+    levels(dataByYear[[i-2011]]$QUINT) <- 1:6
+    newdata <- rbind(newdata, dataByYear[[i-2011]])
+  }
+  newdata$QUINT <- as.numeric(newdata$QUINT)
+  newdata[which(is.na(newdata$QUINT)),which(colnames(newdata)=="QUINT")] <- 1
+  newdata
+}
+
+PIPFreqAvgs <- Quintile(PIPfreq)
+
+
+graph.PIP <- aggregate(.~Year+QUINT, data = select(PIPFreqAvgs, 
+                                                -c(State_Abbreviation, State)), FUN = mean)
+```
+
+
+```{r FactorPlots, echo = FALSE, message = FALSE, warning = FALSE}
+
+varFreqTSeries <- function(variable, states) {
+  Fdata <- auto[,c(variable, "State", "Y&Q")]
+  Fdata$`Y&Q` <- as.numeric(substr(as.character(Fdata$`Y&Q`), 1, 4)) + 
+    as.numeric(substr(as.character(Fdata$`Y&Q`), 7, 7))/4-.25
+  Fdata$group <- ifelse(as.character(Fdata$State) %in% states, as.character(Fdata$State), "Normal")
+  Fdata$Response <- as.numeric(Fdata[,variable])
+  
+  plot1 <- ggplot(data = Fdata, aes(x = `Y&Q`, y = Response, col = group)) +
+    geom_point() + geom_line(data = Fdata[which(Fdata$group != "Normal"),], 
+                             aes(x = `Y&Q`, y = variable)) + 
+    labs(x = "Quarter", y = variable, title = paste("Time Series:", variable))
+  print(plot1)
+  
+}
+
+graphs <- function(graph.data, states) {
+  filteredData <- auto[which(auto$State%in%unique(states)),]
+  out.Freq <- lm(PIP_Frequency~get(variables[1])+get(variables[2])+get(variables[3])+
+                 get(variables[4])+get(variables[5])+get(variables[6]), 
+                 data = filteredData)
+  
+  for(i in 1:length(variables)) {
+    graph1 <- ggplot(data = graph.data, aes(x=factor(QUINT), y = get(variables[i]), fill = factor(Year)))
+    graph1 <- graph1 + geom_col(position = "dodge", width = .56)
+    graph1 <- graph1 + scale_fill_manual(name = "Year:", 
+                        values = c("darkorange1", "olivedrab3", "dodgerblue4", "firebrick3"))
+    graph1 <- graph1 + ggtitle(paste(gsub("_", " ",variables[i]), "by PIP Frequency Quintiles"))
+    graph1 <- graph1 + xlab("PIP Frequency Quintiles") + ylab(gsub("_", " ", variables[i]))
+    graph1 <- graph1 + theme(legend.position="bottom", legend.justification = "left")
+    
+    print(graph1)
+    labels <- c()
+    for(j in 1:nrow(filteredData)) {
+      labels[j] <- filteredData[j, 1]
+    }
+    plot <- avPlot(out.Freq, paste("get(variables[",i, "])", sep = ""), id.cex = .5,
+                 xlab = gsub("_", " ", variables[i]), id.method="x", id.n = 30, labels = labels,
+                  main = paste("PIP Frequency with added variable:", gsub("_", " ", variables[i])))
+    
+    #skip <- unique(filteredData[order(mean(plot[,1])-plot[,1], decreasing = TRUE)[1:10],1])
+    
+    
+    #out.new <- lm(PIP_Frequency~get(variables[1])+get(variables[2])+get(variables[3])+
+    #             get(variables[4])+get(variables[5])+get(variables[6]), 
+    #             data = filteredData[-which(filteredData$State%in%skip),])
+    
+    #varFreqTSeries(variables[i], skip)
+    #avPlot(out.new, paste("get(variables[",i, "])", sep = ""), id.cex = .5,
+    #             xlab = gsub("_", " ", variables[i]), 
+    #       main = paste("Added Variable Plot w/put extreme states:", variables[i]))
+    
+  }
+}
+
+states <- unique(auto$State)
+graphs(graph.PIP, states)
+
+states <- c("Kansas", "Kentucky", "Massachusetts", "Minnesota", "North Dakota","Utah")
+PIPmon <- PIPFreqAvgs[which(PIPFreqAvgs$State%in%states),]
+monetary.graph <- aggregate(.~Year+QUINT, data = select(PIPmon, -c(State_Abbreviation, State)), FUN = mean)
+graphs(monetary.graph, states)
+
+states <- c("Florida", "Michigan", "New Jersey", "New York", "Pennsylvania")
+PIPverb <- PIPFreqAvgs[which(PIPFreqAvgs$State%in%states),]
+verbal.graph <- aggregate(.~Year+QUINT, data = select(PIPverb, -c(State_Abbreviation, State)), FUN = mean)
+graphs(verbal.graph, states)
+
+states <- c("New Jersey", "Pennsylvania", "Kentucky", "Delaware", "Maryland", "Oregon", "South Carolina", "Texas", "Washington")
+PIPopt <- PIPFreqAvgs[which(PIPFreqAvgs$State%in%states),]
+optional.graph <- aggregate(.~Year+QUINT, data = select(PIPopt, -c(State_Abbreviation, State)), FUN = mean)
+graphs(optional.graph, states)
+```
+
+```{r AveragePIPfrequency1, echo = FALSE, message = FALSE, warning = FALSE}
+averageTimeGraph <- function(states) {
+  Quarter <- seq(2011.75, 2015.75, .25)
+
+  frequency <- rep(0, length(auto[which(auto$State == states[2]), which(colnames(auto)=="PIP_Frequency")]))
+  
+  for(i in 2:length(states)){
+    frequency <- frequency + auto[which(auto$State==states[i]), which(colnames(auto)=="PIP_Frequency")]
+  }
+  frequency <- frequency/length(states)
+  
+  plot1 <- qplot(Quarter, frequency, geom = c("line", "point"),
+                 main = paste("Avg. PIP Freq for", states[1]), ylab = "Group Average Frequency")
+
+  print(plot1)
+
+}
+
+states <- c("All PIP States", unique(auto$State))
+allPIP <- averageTimeGraph(states)
+
+states <- c("Monetary threshold States", "Kansas", "Kentucky", "Massachusetts", "Minnesota", "North Dakota","Utah")
+monPIP <- averageTimeGraph(states)
+
+states <- c("Verbal threshold States", "Florida", "Michigan", "New Jersey", "New York", "Pennsylvania")
+verbPIP <- averageTimeGraph(states)
+
+states <- c("Opt. States", "New Jersey", "Pennsylvania", "Kentucky", "Delaware", "Maryland", "Oregon", "South Carolina", "Texas", "Washington")
+optPIP <- averageTimeGraph(states)
+
+```
+
+
+```{r AveragePIPfrequency, echo = FALSE, message = FALSE, warning = FALSE}
+timeGraph <- function(state) {
+
+  state.data <- auto[which(auto$State == state),]
+  Quarter <- seq(2011.75, 2015.75, .25)
+  PIP_Frequency <- state.data$PIP_Frequency
+  
+  plot1 <- qplot(Quarter, PIP_Frequency, geom = c("line", "point"),
+                 main = paste("PIP Frequency for", state))
+  print(plot1)
+}
+
+regionalGraph <- function(states) {
+  Quarter <- seq(2011.75, 2015.75, .25)
+  
+  group.data <- rep(0, length(auto[which(auto$State == states[2]), which(colnames(auto)=="PIP_Frequency")]))
+  
+  for(i in 2:length(states)) {
+    frequency <- auto[which(auto$State == states[i]), which(colnames(auto)=="PIP_Frequency")]
+    group.data <- group.data + frequency
+  }
+  
+  group.data <- group.data/length(states)
+
+  
+  
+  frequency.data <- data.frame(Quarter = Quarter, Frequency = group.data, Group="Average")
+  for (i in 2:length(states)) {
+    stateDats <- data.frame(Quarter = Quarter, 
+                            Frequency = auto[which(auto$State == states[i]), which(colnames(auto)=="PIP_Frequency")],
+                            Group=states[i])
+    frequency.data <- rbind(frequency.data, stateDats)
+  }
+  
+  
+  
+  plot1 <- ggplot(frequency.data, aes(x = Quarter, y = Frequency, col = Group)) +
+    geom_line()+
+    geom_point()+
+    theme(legend.position="bottom")
+  
+  print(plot1)
+
+}
+
+
+all.states <- c("All PIP States", unique(auto$State))
+
+```
+  
+```{r}
+regionalGraph(all.states)
+```
+

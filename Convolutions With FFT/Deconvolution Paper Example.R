@@ -1,0 +1,16 @@
+SUPP <- (1:600)/10
+supp <- (1:300)/10
+x <- diff( c(0, pgamma(SUPP, 0.7, 1/2.1)))
+z <- diff( c(0, pgamma(SUPP, 7.1, 1/2.1)))
+Y <- Re(fft( fft(z)/fft(x) , inverse = TRUE)) / length(SUPP)
+plot(Y)
+plot(dgamma(SUPP, .7,1/2.1))
+ys <- cumsum(Y[1:300])-cumsum(Y[301:600])
+Y[3] <- sum(Y[1:3])
+yl <- cumsum(Y[3:302])
+true <- pgamma(supp, 6.4, 1/2.1)
+plot(x = supp, y = true, type = 'l')
+lines(x = supp, y = yl, lty = 3)
+lines(x = supp, y = ys, lty = 3)
+prod(true >= ys)
+prod(true <= yl)
