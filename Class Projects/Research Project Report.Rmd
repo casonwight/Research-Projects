@@ -1,0 +1,280 @@
+---
+title: "Stat 535 Research Project Report"
+output:
+  word_document:
+    reference_docx: MyTemplate.docx
+  html_document:
+    df_print: paged
+  pdf_document: default
+subtitle: Censored Data in a SRS  |  Cason Wight  |  12/11/2019
+---
+
+```{r Settings, echo = FALSE}
+library(knitr)
+opts_chunk$set(fig.width=7, fig.height=4) 
+```
+
+
+
+<!-- 
+Challenges emerge in statistical practice when model assumptions are not clearly satisfied.
+While the linear model is the most frequently used statistical method, one may have concerns
+about estimation and inference in problems where the underlying linear models theory may
+not be completely appropriate. In this project you will identify an example in which the
+linear model assumptions are not satisfied, explore the consequences of the violation of
+this assumption via simulation, and provide practical advice to other statisticians who may
+encounter a similar issue.
+There are three tasks to perform. These tasks (described below) should be detailed in a 5–7
+page report with meaningful tables and graphics.
+-->
+
+
+
+The assumptions of linear models are not always satisfied in practice. Violating these assumptions typically has unclear effects. One of the assumptions of a linear model is normally distributed error. This assumption is violated when data is censored. Reasons for censored data could include following:
+  
+*  A measurement tool fails to ascertain numbers outside of a reasonable range
+*  A driving range may prevent golfers from achieving full distance if they hit a barrier net
+*  A study on mortality may be yet incomplete, so death age is still unknown for some
+
+Censoring is different than truncation in that true values do occur outside of a given range, but the values are unknown. The only available information on these values is that they occur above or below the reasonable range. For example, if a golfer hits the barrier net (250 yds) at a driving range, it is only known that the drive's distance is *greater* than 250 yds, but nothing more. Censored data often results when full data is expensive, difficult, or impossible to obtain.
+
+While naively fitting linear models on data like this may be tempting, the impact of violating the assumption of normality could be large. This report investigates the effect of censoring data on the results of a linear model analysis.
+
+
+## Motivating Example  
+
+<!-- 
+Find an example that demonstrates a problem with the linear model assumptions. The
+best motivating examples are those that arise from your own statistical practice; this
+may include examples from class projects, homework, or lecture examples. You should
+show how your analysis led you to conclude there was a problem and what analysis
+options you may have to address the problem. The best written sections not only
+showcase a thoughtful analysis but also reflect how one would recognize the problem
+in a different application.
+-->
+
+The Berlin Marathon (sponsored by BMW) has been held annually since 1970. The course has changed over the years, especially after the fall of the Berlin Wall. The race has generally been mapped as a citywide road course. Recently, the course has begun and finished at [Brandenburg Gate](https://www.berlin.de/en/attractions-and-sights/3560266-3104052-brandenburg-gate.en.html). The Berlin Marathon, like many marathons, has a strict time limit for participants.
+
+Runners who finish after 6 hours and 15 minutes are disqualified. Instead of being given a time, their results are marked "DNF" (did not finish). In 2019, over 36,000 runners finished out of over 47,000 participants. This means that roughly 11,000 ($\sim23\%$) of the runners participated without finishing the race. While the true completion time for all of the participants may be normally distributed, the censored times certainly are not.
+
+The 2015 Berlin marathon results are available through [results.scc-events.com](http://results.scc-events.com/2015/?page=1&event=MAL&pid=search&search_sort=name). This source provides race details for all of the participants, including place numbe, name, finish time, and some other information. Many of the runners have finish times left blank, which presumably means that they did not finish. All we do know about their racing time is that it their true time is longer than 375 minutes. For the purpose of a linear model analysis, all of the censored observations are set to the minimum value of 375 minutes. 
+
+The summary statistics of this data are shown in the table below. 
+
+```{r Data, echo = FALSE}
+set.seed(1)
+
+marathon <- read.csv("C:/Users/cason/Desktop/Classes/Assignments/Stat 535/Research Project/marathonBerlin.csv")$Times
+
+pFinish <- mean(marathon!=375)
+
+summ.stats <- t(c(summary(marathon)[c(1,4,6)],"Std Dev" = sd(marathon), "% Finishers" = pFinish*100))
+
+kable(summ.stats, caption = "Summary Statistics of 2015 Berlin Marathon Results", digits = 2)
+```
+
+The fastest runner finished the race in just over $2$ hours. Out of all the participants, $`r round(pFinish*100,2)`\%$ finished the race in under $375$ minutes. Including the censored times, the mean time was $4$ hours and $36$ minutes, with a standard deviation of 1 hour and 6 minutes. The mean and standard deviation are artificially deflated, because the $`r round(100*(1-pFinish),2)`\%$ who did not finish would have had times greater than $6$ hours and $15$ minutes but are instead assigned to these values.
+
+A histogram of these results is shown in the figure below.
+
+```{r hist, echo = FALSE}
+hist(marathon, main = "2015 Berlin Marathon Results", xlab = "Minutes Until Finish")
+```
+
+A histogram is a great way to analyze the normality of data. For normally distributed data, one would expect a unimodal histogram with symmetric tails. With censored data, one (or both) tails will likely have a heavy frequency at a single point (not at the mode), with no values beyond this point.  For the marathon data, the histogram looks approximately normal from $150$ to $350$ minutes, with a slight skew. The red flag that indicates censoring here is the extreme point mass at $375$ minutes with no observations above this time. From both the data collection process and the above histogram, it is clear that censoring is an issue that affects the assumption of normality. 
+
+Censoring should be a known phenomena when performing an analysis with linear models. If one is not sure if data is censored, considering the process and tools by which the data was collected is the best place to start. A histogram, like the one showed above, can also help indicate if data is censored. The effects of censored data can be evaluated through a simulation study.
+  
+## Simulation Study  
+  
+<!-- 
+Design and perform a simulation study that explores the problem motivated by the
+previous section. The best simulations explore at least one of the following:
+– the effectiveness of detecting varying degrees of the problem;
+– the robustness of the analysis to varying degrees of the problem; or
+– the efficacy of possible actions that change the analysis.
+When writing this section describe how your simulation study explores the problem,
+provide a technical description of your simulation (not code), and present effective
+table(s) and graphic(s) of the results.
+-->
+
+Simulation gives insights into the effects of many problems. Before conducting this study, a single simulated data set can show similar issues to those in the 2015 Berlin Marathon data. In this simulation study, samples are taken from a censored normal, where no data can be observed above a given point. A predetermined proportion of the data is set aside as the remaining censored points, and are recorded as the value of the censoring point. Notice that this is not the same as the standard definition of censoring. Exploring the impact of the proportion censored is important. It is unlikely that the marathon results could result from a strictly censored normal, but rather a censored normal with a weighted censoring point. A quantile plot of one sample from this simulation is compared to the quantile plot of the actual marathon times in the figure below.  
+
+```{r QQPlots, echo = FALSE, fig.height = 4, fig.width = 7}
+n <- length(marathon)
+
+getSamp <- function(percentOneVal, mu, val, sigma) {
+  draws <- numeric()
+  
+  draws[1] <- rbinom(1,n,percentOneVal)
+  draws[2] <- n-draws[1]
+  
+  OneVal <- rep(val,draws[1])
+  otherVals <- truncnorm::rtruncnorm(draws[2],a=-Inf,b=val,mean=mu,sd=sigma)
+
+  sample(c(OneVal,otherVals))
+}
+
+this.sample <- getSamp(.28, 0, 2,1)
+
+par(mfrow = c(1,2))
+qqnorm(marathon, main = "2015 Berlin Marathon Data")
+qqline(marathon)
+qqnorm(this.sample, main = "Simulated Truncated Normal")
+qqline(this.sample)
+par(mfrow = c(1,1))
+```
+
+A quantile plot is another way of assessing normality in data. If data is approximately normal, it should follow the quantile line on the plot, which represents quantiles from a true normal. The above plots are extremely similar in shape, which means that this simulation captures the normality challenge of the original data set. Neither data set follows the line well, indicating non-normality. Both have a flattened upper tail, which means that the tail is much shorter than would be expected from a true normal. This is an obvious effect of censoring the upper tail. 
+
+One way to look at the effects of censoring is an analysis of power. In a test, power is the probability of rejecting the null hypothesis when it is, in fact, false. In this report, the critical value for rejection is $\alpha\le.05$. When the null hypothesis is true (in this simulation, when $\mu=0$), the power is $.05$ because data simulated under the null hypothesis would give data that rejects the null hypothesis $5\%$ of the time. As the underlying mean moves away from the null hypothesis, power increases until the data is so extremely different from what the null hypothesis would produce that the power approaches $100\%$. A graphic showing the change in power as data is sampled from means moving away from the null hypothesis is known as a *power curve*.
+
+In this simulation study, three parameters are adjusted to assess the effects on power. These three are the proportion of censored points, the *true* mean for a non-censored population, and the censoring point value (reported in this example as the number of standard deviations above the mean). For a set proportion of $30\%$ censored, the power curves are shown in the plots of the figure below. The power here is calculated when testing the true mean against a null hypothesis of $\mu=0$ at various true means and censoring points.
+
+```{r Simulation, fig.width=7, fig.height=5, echo = FALSE}
+n <- 750
+nMus <- 51
+nSamp <- 250
+rejected <- list()
+rejected2 <- list()
+
+j <- 1
+mus <- seq(-.7,.7,length.out = nMus)
+
+percentOneVal <- .3
+
+sigma <- 1
+
+deltas <- c(0,.5,.8,1.6)*sigma
+
+k <- 1
+
+for(delta in deltas){
+  
+  rejected[[k]] <- matrix(NA,nMus,nSamp)
+  rejected2[[k]] <- matrix(NA,nMus,nSamp)
+  
+  j <- 1
+  
+  for(mu in mus){
+  
+    for(i in 1:nSamp){
+      
+      this.sample <- getSamp(percentOneVal, mu, mu+delta, sigma)
+      
+      mean(this.sample)
+      
+      rejected[[k]][j,i] <- t.test(this.sample)$p.value < .05
+      rejected2[[k]][j,i] <- t.test(rnorm(n,mu,sigma))$p.value < .05
+      
+    }
+    
+    j <- j+1
+  }
+  
+  k <- k+1
+}
+
+
+power.vals <- list()
+power.vals2 <- list()
+
+par(mfrow=c(2,2),oma = c(2, 2, 2.5, 0), mar = c(2.2,2,1,1))
+for(j in 1:length(deltas)){
+  power.vals[[j]] <- apply(rejected[[j]],1,mean)
+  power.vals2[[j]] <- apply(rejected2[[j]],1,mean)
+  change <- deltas[j]
+  plot(mus,power.vals[[j]], type = 'n',ylim = c(0,1),
+       main = substitute(paste("Censoring at ",change," std devs above ",mu),list(change=deltas[j])),
+       xlab = "",
+       ylab = "")
+  abline(v=seq(-.8,.8,by=.2),col="royalblue", lty = "dashed")
+  abline(h=seq(0,1,by=.1), col = "grey", lty = "dashed")
+  abline(h=.05,lty = "dashed", col = 'grey35',lwd=2)
+  lines(mus,power.vals2[[j]], type = 'l', lwd = 1, col = "grey")
+  lines(mus,power.vals[[j]], type = 'l', lwd = 1.5)
+}
+mtext(expression(mu),side=1,line=0.5, outer=TRUE,cex=1.3)
+mtext("Power",side=2,line=0.5,outer=TRUE,cex=1.3,las=0)
+mtext("Power Curve for a Moving Censor Point",side=3,line=.5,outer=TRUE,cex=1.3,las=0)
+par(mfrow=c(1,1),oma = c(0, 22, 22, 0), mar = c(0,0,0,0))
+legend(x="bottomright",nco=2,legend=c("Censored", "Normal"), col = c("black","grey"), lty = "solid", cex=.75)
+```
+
+These plots reveal that the power curve "slides" with the censoring point. For this scenario, when the censoring point is less than $0.8$ standard deviations above the uncensored mean, the power curve is shifted to the right. For censoring points more than $0.8$ standard deviations above the mean, the power curve gets shifted farther and farther left. With a censoring point of roughly $0.8$ standard deviations above the mean, the power curve is where it *should* be, meaning centered aorund $0$. 
+
+One way of thinking of this is that if the censoring point is close to $0.8$ standard deviations above the mean, the power is lowest when the null hypothesis is true, which is what should happen. Looking at the details of this simulation study can give general guidelines for dealing with censored data.
+
+## Advice for Statistical Practice  
+
+<!-- 
+Translate the simulation study results into practical advice. The best papers share details on the data features or diagnostics that represent serious impact on the analysis
+and cases when the problem can be ignored. This section should include a demonstration of your advice regarding the motivating example
+-->
+
+In this section, the results of the simulation study are used to drive a few rules for how to gauge the impact of censoring on an SRS analysis. These guidelines could likely be generalized for most other linear models as well. 
+
+The simulation study of this report has shown that for a particular proportion of data censored, there is an "optimal" censoring point that makes the power curve closest to an uncensored power curve. Performing a similar study to that shown above with various proportions gives differing optimal censoring points. The table below shows these optimal points for different proportions of the data that are censored.
+
+
+
+| Proportion Censored | $.00001$ | $.01$   | $.05$   | $.10$   | $.20$   | $.40$   | $.60$   | $.80$   | $.99$   |
+|:--------------------|---------:|--------:|--------:|--------:|--------:|--------:|--------:|--------:|--------:|
+| Std Dev above mean  | $2.48$   | $2.40$  | $1.75$  | $1.40$  |  $1.05$ | $0.64$  | $0.38$  | $0.18$  | $0.01$  |  
+
+Table: Optimal Censoring Point by Proportions Censored
+
+While one typically cannot preset a censoring point or censoring proportion, looking at how close a data set is to ideal conditions can help assess the effects of the censoring. Ideally, the true censoring point should be close to the values shown in the table above, depending on the proportion censored. For example, if one is given data where almost no observations are censored, a censoring point of $>2.50$ standard deviations above the mean would be best. Censoring points that are much lower than this will have a large impact on power. When the proportion gets closer to $1.00$, the censoring point should approach $0.00$ standard deviations above the mean.  
+
+```{r hist2, echo = FALSE}
+uncensored <- marathon[which(marathon!=375)]
+censored <- rep(375, sum(which(marathon==375)))
+
+likelihood <- function(pars) -sum(dnorm(uncensored, pars[1], pars[2], log = TRUE) - pnorm(375, pars[1], pars[2], log = TRUE))
+pars <- c(0,1)
+
+truePars <- optim(pars, likelihood, method = "L-BFGS-B", lower = c(-Inf,0.001), upper = c(Inf,Inf))$par
+
+hist(marathon, main = "2015 Berlin Marathon Results", xlab = "Minutes Until Finish", breaks = 30, freq = FALSE)
+curve(dnorm(x,246.12,43.36)*pFinish,add = TRUE, col = "grey", lwd = 2)
+abline(v = c(375,246.12+43.36), col = c("black", "royalblue"), lty = "dashed", lwd = 2)
+legend("topleft", col = c(1,"grey",1,"royalblue"), lwd = c(1:2,2,2), lty = c("solid","solid","dashed","dashed"), 
+       legend = c("Actual Data", "Approx Dist", "Censor Point", "Optimal Point"))
+```
+
+Applying these "rules" to the marathon data gives concerning results. Based on truncated maximum likelihood estimation, the non-censored data has an estimated mean of $`r round(truePars[1],2)`$ minutes with a standard deviation of $`r round(truePars[2],2)`$ minutes. 
+This means that the censoring point of $375.00$ minutes is roughly $`r round((375-truePars[1])/truePars[2],2)`$ standard deviations above the mean. The histogram of the running times is shown in the figure above, with the estimated distribution of the non-censored data shown.
+
+The proportion censored in this data is roughly $`r 1-round(pFinish,2)`$. This means that for the power to be approximately what it should be, the guidelines say that the truncation point should be slightly less than $1.05$ standard deviations above the mean. $2.97$ is far more than $1.05$, so this example does not have an ideal truncation point, given the proportion censored. Any test comparing this data to an estimated value will have a right-shifted power curve, which may invalidate results. 
+
+When testing a null hypothesis that has strong contradictory evidence, the power will likely be close to $100\%$ no matter the censoring. If this is the case, the power curve shift from the censoring point is likely to have little impact on the power. This concept is portrayed in the arbitrary power curve of the figure below. The power curves do not align like they should with an ideal censoring point. However, when the true mean moves away from the mean under the null hypothesis, $\mu=0$, they each move to essentially $100\%$ power. This means that the most damage to power is done when evidence against the null hypothesis is weakest. 
+
+```{r PowerCurve, echo = FALSE}
+n <- 500
+
+power <- function(mu){
+  bounds <- qt(c(.025,.975),n-1)
+  accept.rate <- suppressWarnings(pt(bounds[1], df = n-1, ncp = mu) + (1 - pt(bounds[2], df = n-1, ncp = mu)))
+  accept.rate
+}
+
+mus <- seq(-12,12,length.out = 101)
+mus2 <- seq(-18,6, length.out = 101)
+
+plot(mus, power(mus), col = "black", type = 'l', main = "Power Curve",
+     xlab = expression(mu), ylab = "Power", ylim = c(0,1))
+lines(mus, power(mus2), col = "grey")
+abline(h=.05, col = "grey", lty = "dashed")
+legend("bottomleft", col = c("black", "grey"), lty = "solid", legend = c("Normal", "Censored"))
+```
+
+This project has focused on when the censoring point is working as a maximum value for a sample of data. Data can also be censored can through a minimum value or by both a minimum and a maximum. The principles developed for working with right censored data can be expanded to the other two scenarios as well.
+
+The main guidelines of this report include the following:
+*  With a larger proportion of data censored, the point of censoring should be closer to the true mean for low power impact
+*  With a smaller proportion of data censored, the point of censoring should be farther from the true mean for low power impact
+*  When the true mean is significantly different from the mean under the null hypothesis, the power will likely be high unless the censoring proportion or point is extreme
+
+If left-censoring (minimum value), the above principles apply like they did with right-censored data. When censoring on both sides of data, the impact of both must be individually considered to analyze the overall impact. For example, if the proportion right censored is low, then the right censoring point should be far from the mean. In this same example, if the proportion left censored is high, then the left censoring point should be just below the mean. The table provided above can give more details for specific values. If the censoring points are too far away from the ideal point in both the left and the right, the effects could be negated. 
+
+This project explores the impact of censoring on a SRS linear model analysis. Censored data often arises in practice from physical limitations of data collection. If one is unsure if data is censored, a histogram or quantile plot can help give clarification. The 2015 Berlin Marathon results are a great example of censored data. When testing the true mean against a null hypothesis, censored data can *shift* a power curve. Ideal truncation points can be found, given the proportion censored. If a censored data set has a truncation point close to the "ideal" truncation point, the impact on power will be low; otherwise, the test will likely have power that is far too high.
